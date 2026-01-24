@@ -3,28 +3,22 @@
 OPENCODE_PORT_START="${OPENCODE_PORT:-4096}"
 OPENCODE_PORT_MAX=$((OPENCODE_PORT_START + 10))
 
-# Find the real opencode binary, ignoring this script
+# 1. Simple binary discovery
 SCRIPT_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
-OPENCODE_BIN=""
-
-IFS=: read -ra PATHS <<< "$PATH"
-for dir in "${PATHS[@]}"; do
-    if [ -x "$dir/opencode" ] && [ "$dir/opencode" != "$SCRIPT_PATH" ]; then
-        OPENCODE_BIN="$dir/opencode"
-        break
-    fi
-done
+OPENCODE_BIN="$(which -a opencode 2>/dev/null | grep -v "$SCRIPT_PATH" | head -1)"
 
 if [ -z "$OPENCODE_BIN" ]; then
-    # Fallback: try finding it with which, excluding this script
-    OPENCODE_BIN="$(which -a opencode 2>/dev/null | grep -v "$SCRIPT_PATH" | head -1)"
+    if [ -x "$HOME/.opencode/bin/opencode" ]; then
+        OPENCODE_BIN="$HOME/.opencode/bin/opencode"
+    fi
 fi
 
 if [ -z "$OPENCODE_BIN" ]; then
-    echo "Error: opencode command not found in PATH"
+    echo "❌ Error: Could not find 'opencode' binary."
     exit 1
 fi
 
+# 2. Simple port check
 check_port() {
     local port=$1
     if command -v lsof >/dev/null 2>&1; then
@@ -41,7 +35,6 @@ check_port() {
 
 find_available_port() {
     local port=$OPENCODE_PORT_START
-    
     while [ $port -le $OPENCODE_PORT_MAX ]; do
         if ! check_port "$port"; then
             echo "$port"
@@ -49,15 +42,12 @@ find_available_port() {
         fi
         port=$((port + 1))
     done
-    
-    echo "Error: All ports from $OPENCODE_PORT_START to $OPENCODE_PORT_MAX are in use"
-    echo "Please stop an existing OpenCode instance or set OPENCODE_PORT to a different range"
     exit 1
 }
 
 AVAILABLE_PORT=$(find_available_port)
-
 if [ -z "$AVAILABLE_PORT" ]; then
+    echo "❌ No ports available."
     exit 1
 fi
 
@@ -67,8 +57,17 @@ fi
 
 export OPENCODE_PORT="$AVAILABLE_PORT"
 
+# 3. Simple execution logic
 if [ -n "$TMUX" ]; then
+    # Already in tmux? Just run it.
     exec "$OPENCODE_BIN" --port "$AVAILABLE_PORT" "$@"
 else
-    exec tmux new-session "$OPENCODE_BIN --port $AVAILABLE_PORT $*"
+    # Not in tmux? Launch new session.
+    # Use bash -l to ensure PATH is correct, but keep the command string simple.
+    # We escape only the binary path to be safe.
+    SAFE_BIN=$(printf %q "$OPENCODE_BIN")
+    
+    echo "🚀 Launching tmux session..."
+    # Launch bash -l -> run command || wait for input on error
+    exec tmux new-session "bash -l -c '$SAFE_BIN --port $AVAILABLE_PORT $* || { echo \"Exit code: \$?\"; read -p \"Press Enter...\"; }'"
 fi
