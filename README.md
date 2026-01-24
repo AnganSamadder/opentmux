@@ -32,7 +32,25 @@ The plugin repo is: https://github.com/AnganSamadder/opencode-agent-tmux.git
 - **tmux**
 - **Bun** (for building)
 
-## 🛠 Manual Installation
+## 📦 Installation (Official)
+
+1.  **Install via NPM:**
+    ```bash
+    npm install -g opencode-agent-tmux
+    ```
+    *Note: The installation automatically configures a shell alias to enable the smart tmux wrapper.*
+
+2.  **Configure OpenCode:**
+    Add the plugin name to your `~/.config/opencode/opencode.json`:
+    ```json
+    {
+      "plugins": [
+        "opencode-agent-tmux"
+      ]
+    }
+    ```
+
+## 🛠 Manual Installation (Development)
 
 If you prefer to install it yourself:
 

@@ -31,7 +31,7 @@ var SESSION_MISSING_GRACE_MS = POLL_INTERVAL_MS * 3;
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
-var logFile = path.join(os.tmpdir(), "opencode-subagent-tmux.log");
+var logFile = path.join(os.tmpdir(), "opencode-agent-tmux.log");
 function log(message, data) {
   try {
     const timestamp = (/* @__PURE__ */ new Date()).toISOString();
@@ -445,12 +445,12 @@ function detectServerUrl() {
 }
 function loadConfig(directory) {
   const configPaths = [
-    path2.join(directory, "opencode-subagent-tmux.json"),
+    path2.join(directory, "opencode-agent-tmux.json"),
     path2.join(
       process.env.HOME ?? "",
       ".config",
       "opencode",
-      "opencode-subagent-tmux.json"
+      "opencode-agent-tmux.json"
     )
   ];
   for (const configPath of configPaths) {
@@ -476,7 +476,7 @@ function loadConfig(directory) {
   log("[plugin] using default config", { config: defaultConfig });
   return defaultConfig;
 }
-var OpencodeSubagentTmux = async (ctx) => {
+var OpencodeAgentTmux = async (ctx) => {
   const config = loadConfig(ctx.directory);
   const tmuxConfig = {
     enabled: config.enabled,
@@ -494,7 +494,7 @@ var OpencodeSubagentTmux = async (ctx) => {
   }
   const tmuxSessionManager = new TmuxSessionManager(ctx, tmuxConfig, serverUrl);
   return {
-    name: "opencode-subagent-tmux",
+    name: "opencode-agent-tmux",
     event: async (input) => {
       await tmuxSessionManager.onSessionCreated(
         input.event
@@ -502,7 +502,7 @@ var OpencodeSubagentTmux = async (ctx) => {
     }
   };
 };
-var index_default = OpencodeSubagentTmux;
+var index_default = OpencodeAgentTmux;
 export {
   index_default as default
 };

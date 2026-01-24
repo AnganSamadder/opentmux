@@ -4,13 +4,23 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-const PLUGIN_DIR = path.resolve(__dirname, '..');
-const WRAPPER_PATH = path.join(PLUGIN_DIR, 'bin', 'opencode-tmux');
 const HOME = os.homedir();
 
 function detectShell() {
   const shell = process.env.SHELL || '';
+  const platform = process.platform;
   
+  if (platform === 'win32') {
+     const documents = path.join(HOME, 'Documents');
+     const psDir = path.join(documents, 'PowerShell');
+     const psProfile = path.join(psDir, 'Microsoft.PowerShell_profile.ps1');
+     return {
+         name: 'powershell',
+         rcFile: psProfile,
+         dir: psDir
+     };
+  }
+
   if (shell.includes('zsh')) {
     return { name: 'zsh', rcFile: path.join(HOME, '.zshrc') };
   } else if (shell.includes('bash')) {
@@ -30,8 +40,16 @@ function detectShell() {
   return { name: 'unknown', rcFile: path.join(HOME, '.profile') };
 }
 
-function getAliasLine() {
-  return `alias opencode='${WRAPPER_PATH}'`;
+function getAliasContent(shellName) {
+  if (shellName === 'powershell') {
+    return `
+function opencode {
+    opencode-tmux $args
+}
+`;
+  }
+  
+  return `alias opencode='opencode-tmux'`;
 }
 
 function getExportLine() {
@@ -46,29 +64,32 @@ function setupAlias() {
   console.log(`   Detected shell: ${shell.name}`);
   console.log(`   Config file: ${shell.rcFile}`);
   
+  if (shell.name === 'powershell') {
+      if (!fs.existsSync(shell.dir)) {
+          fs.mkdirSync(shell.dir, { recursive: true });
+      }
+  }
+
   if (!fs.existsSync(shell.rcFile)) {
     console.log(`   Creating ${shell.rcFile}...`);
     fs.writeFileSync(shell.rcFile, '', 'utf-8');
   }
   
   let rcContent = fs.readFileSync(shell.rcFile, 'utf-8');
-  const aliasLine = getAliasLine();
-  const exportLine = getExportLine();
+  const aliasContent = getAliasContent(shell.name);
   
   const MARKER_START = '# >>> opencode-agent-tmux >>>';
   const MARKER_END = '# <<< opencode-agent-tmux <<<';
   
-  // Clean up old subagent-tmux alias if it exists
   const OLD_MARKER_START = '# >>> opencode-subagent-tmux >>>';
   const OLD_MARKER_END = '# <<< opencode-subagent-tmux <<<';
   
   if (rcContent.includes(OLD_MARKER_START)) {
     console.log('   Removing old opencode-subagent-tmux alias...');
     const regex = new RegExp(`${OLD_MARKER_START}[\\s\\S]*?${OLD_MARKER_END}\\n?`, 'g');
-    const newContent = rcContent.replace(regex, '');
-    fs.writeFileSync(shell.rcFile, newContent, 'utf-8');
+    rcContent = rcContent.replace(regex, '');
+    fs.writeFileSync(shell.rcFile, rcContent, 'utf-8');
     console.log('   ✓ Removed old alias');
-    // Reload content
     rcContent = fs.readFileSync(shell.rcFile, 'utf-8');
   }
   
@@ -77,19 +98,33 @@ function setupAlias() {
     return;
   }
   
-  const configBlock = `
+  let configBlock = '';
+  if (shell.name === 'powershell') {
+      configBlock = `
 ${MARKER_START}
-${exportLine}
-${aliasLine}
+$env:OPENCODE_PORT="4096"
+${aliasContent}
 ${MARKER_END}
 `;
+  } else {
+      configBlock = `
+${MARKER_START}
+${getExportLine()}
+${aliasContent}
+${MARKER_END}
+`;
+  }
   
   fs.appendFileSync(shell.rcFile, configBlock);
   
   console.log('   ✓ Auto-launcher configured successfully!');
   console.log('');
-  console.log('   To activate now, run:');
-  console.log(`   source ${shell.rcFile}`);
+  console.log('   To activate now:');
+  if (shell.name === 'powershell') {
+      console.log(`   . ${shell.rcFile}`);
+  } else {
+      console.log(`   source ${shell.rcFile}`);
+  }
   console.log('');
   console.log('   Or restart your terminal.');
   console.log('');
@@ -102,9 +137,6 @@ try {
 } catch (error) {
   console.error('');
   console.error('⚠️  Failed to auto-configure shell alias:', error.message);
-  console.error('');
-  console.error('   You can manually add this to your shell config:');
-  console.error(`   ${getAliasLine()}`);
   console.error('');
   process.exit(0);
 }

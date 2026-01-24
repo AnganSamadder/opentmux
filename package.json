@@ -5,6 +5,9 @@
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "bin": {
+    "opencode-tmux": "./bin/opencode-tmux.js"
+  },
   "files": [
     "dist",
     "bin",
@@ -15,7 +18,7 @@
     "dev": "tsup src/index.ts --format esm --dts --watch",
     "typecheck": "tsc --noEmit",
     "prepublishOnly": "bun run build",
-    "postinstall": "bash scripts/install.sh || node scripts/install.js"
+    "postinstall": "node scripts/install.js"
   },
   "keywords": [
     "opencode",

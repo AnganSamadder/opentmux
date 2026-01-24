@@ -67,6 +67,6 @@ declare const PluginConfigSchema: z.ZodObject<{
 }>;
 type PluginConfig = z.infer<typeof PluginConfigSchema>;
 
-declare const OpencodeSubagentTmux: Plugin;
+declare const OpencodeAgentTmux: Plugin;
 
-export { type PluginConfig, type TmuxConfig, type TmuxLayout, OpencodeSubagentTmux as default };
+export { type PluginConfig, type TmuxConfig, type TmuxLayout, OpencodeAgentTmux as default };

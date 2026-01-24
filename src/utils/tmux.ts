@@ -1,4 +1,4 @@
-import { spawn, type Subprocess, type SpawnOptions } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import type { TmuxConfig, TmuxLayout } from '../config';
 import { log } from './logger';
 
