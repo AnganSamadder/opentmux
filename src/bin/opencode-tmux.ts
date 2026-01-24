@@ -104,21 +104,6 @@ function hasTmux(): boolean {
   }
 }
 
-function extractLogUpdateFlag(args: string[]): { args: string[]; logUpdate: boolean } {
-  let logUpdate = false;
-  const cleaned: string[] = [];
-
-  for (const arg of args) {
-    if (arg === '--log-update' || arg.startsWith('--log-update=')) {
-      logUpdate = true;
-      continue;
-    }
-    cleaned.push(arg);
-  }
-
-  return { args: cleaned, logUpdate };
-}
-
 // --- Main Logic ---
 
 async function main() {
@@ -144,13 +129,8 @@ async function main() {
   env.OPENCODE_PORT = port.toString();
 
   // Pass-through arguments
-  const rawArgs = argv.slice(2);
-  const { args, logUpdate } = extractLogUpdateFlag(rawArgs);
-  if (logUpdate) {
-    env.OPENCODE_AUTO_UPDATE_LOG_UPDATE = 'true';
-    env.OPENCODE_AUTO_UPDATE_BYPASS_THROTTLE = 'true';
-    env.OPENCODE_AUTO_UPDATE_DEBUG = 'true';
-  }
+  const args = argv.slice(2);
+
   // Construct arguments for the opencode binary
   const childArgs = ['--port', port.toString(), ...args];
 
