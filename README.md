@@ -151,3 +151,7 @@ Running multiple instances? Each will automatically get its own port. See `MULTI
 ## License
 
 MIT
+
+## Acknowledgements
+
+This project was inspired by [oh-my-opencode-slim](https://github.com/alvinunreal/oh-my-opencode-slim) by alvinunreal, which pioneered the tmux session management integration for OpenCode. This plugin extracts that functionality into a standalone, agent-agnostic tool.
