@@ -1,0 +1,36 @@
+{
+  "name": "opencode-agent-tmux",
+  "version": "1.0.0",
+  "description": "OpenCode plugin that provides tmux integration for viewing agent execution in real-time",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "bin",
+    "scripts"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts --clean",
+    "dev": "tsup src/index.ts --format esm --dts --watch",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "bun run build",
+    "postinstall": "bash scripts/install.sh || node scripts/install.js"
+  },
+  "keywords": [
+    "opencode",
+    "opencode-plugin",
+    "tmux",
+    "agent"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.2.4",
+    "tsup": "^8.3.6",
+    "typescript": "^5.7.3"
+  }
+}
