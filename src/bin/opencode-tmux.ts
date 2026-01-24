@@ -104,32 +104,51 @@ function hasTmux(): boolean {
   }
 }
 
+function extractLogUpdateFlag(args: string[]): { args: string[]; logUpdate: boolean } {
+  let logUpdate = false;
+  const cleaned: string[] = [];
+
+  for (const arg of args) {
+    if (arg === '--log-update' || arg.startsWith('--log-update=')) {
+      logUpdate = true;
+      continue;
+    }
+    cleaned.push(arg);
+  }
+
+  return { args: cleaned, logUpdate };
+}
+
 // --- Main Logic ---
 
 async function main() {
-  spawnPluginUpdater();
-
   const opencodeBin = findOpencodeBin();
   if (!opencodeBin) {
-    console.error("❌ Error: Could not find 'opencode' binary.");
-    console.error("   Please ensure OpenCode is installed and in your PATH.");
+    console.error('Error: Could not find "opencode" binary in PATH or common locations.');
     exit(1);
   }
+
+  // Start background plugin updater
+  spawnPluginUpdater();
 
   const port = await findAvailablePort();
   if (!port) {
-    console.error("❌ No ports available in range " + OPENCODE_PORT_START + "-" + OPENCODE_PORT_MAX);
+    console.error('Error: No available ports found in range 4096-4106.');
     exit(1);
   }
 
-  if (port !== OPENCODE_PORT_START) {
-    console.warn(`⚠️  Port ${OPENCODE_PORT_START} is in use, using port ${port} instead`);
-  }
-
+  const env = { ...process.env };
   env.OPENCODE_PORT = port.toString();
 
   // Pass-through arguments
-  const args = argv.slice(2);
+  const rawArgs = argv.slice(2);
+  const { args, logUpdate } = extractLogUpdateFlag(rawArgs);
+
+  if (logUpdate) {
+    env.OPENCODE_AUTO_UPDATE_LOG_UPDATE = 'true';
+    env.OPENCODE_AUTO_UPDATE_BYPASS_THROTTLE = 'true';
+    env.OPENCODE_AUTO_UPDATE_DEBUG = 'true';
+  }
 
   // Construct arguments for the opencode binary
   const childArgs = ['--port', port.toString(), ...args];
@@ -141,7 +160,7 @@ async function main() {
     // Case 1: Already in tmux
     // Case 2: Tmux not installed (e.g. pure Windows) -> Fallback to running directly
     
-    const child = spawn(opencodeBin, childArgs, { stdio: 'inherit' });
+    const child = spawn(opencodeBin, childArgs, { stdio: 'inherit', env });
     child.on('close', (code) => exit(code ?? 0));
     
     // Handle signals
@@ -167,7 +186,7 @@ async function main() {
       shellCommand
     ];
 
-    const child = spawn('tmux', tmuxArgs, { stdio: 'inherit' });
+    const child = spawn('tmux', tmuxArgs, { stdio: 'inherit', env });
     child.on('close', (code) => exit(code ?? 0));
   }
 }
