@@ -154,4 +154,4 @@ MIT
 
 ## Acknowledgements
 
-This project was inspired by [oh-my-opencode-slim](https://github.com/alvinunreal/oh-my-opencode-slim) by alvinunreal, which pioneered the tmux session management integration for OpenCode. This plugin extracts that functionality into a standalone, agent-agnostic tool.
+This project extracts and improves upon the tmux session management from [oh-my-opencode-slim](https://github.com/alvinunreal/oh-my-opencode-slim) by alvinunreal. It transforms the original implementation into a robust, standalone plugin with multi-port support, enhanced error handling, and agent-agnostic compatibility.
