@@ -104,23 +104,6 @@ function hasTmux(): boolean {
   }
 }
 
-function extractLogUpdateFlag(args: string[]): { args: string[]; logUpdate: boolean } {
-  let logUpdate = false;
-  const cleaned: string[] = [];
-
-  for (const arg of args) {
-    if (arg === '--log-update' || arg.startsWith('--log-update=')) {
-      logUpdate = true;
-      continue;
-    }
-    cleaned.push(arg);
-  }
-
-  return { args: cleaned, logUpdate };
-}
-
-// --- Main Logic ---
-
 async function main() {
   const opencodeBin = findOpencodeBin();
   if (!opencodeBin) {
@@ -128,7 +111,6 @@ async function main() {
     exit(1);
   }
 
-  // Start background plugin updater
   spawnPluginUpdater();
 
   const port = await findAvailablePort();
@@ -140,17 +122,7 @@ async function main() {
   const env = { ...process.env };
   env.OPENCODE_PORT = port.toString();
 
-  // Pass-through arguments
-  const rawArgs = argv.slice(2);
-  const { args, logUpdate } = extractLogUpdateFlag(rawArgs);
-
-  if (logUpdate) {
-    env.OPENCODE_AUTO_UPDATE_LOG_UPDATE = 'true';
-    env.OPENCODE_AUTO_UPDATE_BYPASS_THROTTLE = 'true';
-    env.OPENCODE_AUTO_UPDATE_DEBUG = 'true';
-  }
-
-  // Construct arguments for the opencode binary
+  const args = argv.slice(2);
   const childArgs = ['--port', port.toString(), ...args];
 
   const inTmux = !!env.TMUX;
