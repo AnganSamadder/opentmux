@@ -16,7 +16,7 @@
     "dev": "tsup --watch",
     "typecheck": "tsc --noEmit",
     "prepublishOnly": "bun run build",
-    "postinstall": "node dist/scripts/install.js"
+    "postinstall": "node dist/scripts/install.js || echo 'Skipping postinstall setup (dist not found)'"
   },
   "keywords": [
     "opencode",
