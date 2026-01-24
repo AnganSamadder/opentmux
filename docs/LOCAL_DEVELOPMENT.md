@@ -80,7 +80,7 @@ node dist/scripts/install.js
 ```
 
 ### Test the Plugin
-1. Make sure `"opencode-agent-tmux"` is in your `~/.config/opencode/opencode.json` plugins array
+1. Make sure `"opencode-agent-tmux"` is in your `~/.config/opencode/opencode.json` plugin array
 2. Run `opencode` and spawn an agent (like `explore` or `oracle`)
 3. Check if tmux panes are created automatically
 

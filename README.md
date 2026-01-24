@@ -34,11 +34,11 @@ To install this plugin, please perform the following steps for the user:
     *Note: This installer automatically configures the user's shell (Bash/Zsh/Fish/PowerShell) to use the smart wrapper.*
 
 2.  **Configure OpenCode:**
-    Add `"opencode-agent-tmux"` to the `plugins` array in the user's config file (usually `~/.config/opencode/opencode.json`).
+    Add `"opencode-agent-tmux"` to the `plugin` array in the user's config file (usually `~/.config/opencode/opencode.json`).
 
     ```json
     {
-      "plugins": [
+      "plugin": [
         "opencode-agent-tmux"
       ]
     }
@@ -62,7 +62,7 @@ To install this plugin, please perform the following steps for the user:
     Add `"opencode-agent-tmux"` to your `~/.config/opencode/opencode.json`:
     ```json
     {
-      "plugins": [
+      "plugin": [
         "opencode-agent-tmux"
       ]
     }
