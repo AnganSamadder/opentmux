@@ -384,7 +384,7 @@ async function main() {
   const args = argv.slice(2);
   const isCliCommand =
     args.length > 0 &&
-    (['auth', 'config', 'plugins', 'update', 'completion'].includes(args[0]) ||
+    (['auth', 'config', 'plugins', 'update', 'completion', 'stats'].includes(args[0]) ||
       ['--version', '-v', '--help', '-h'].includes(args[0]));
 
   if (isCliCommand) {
@@ -395,10 +395,25 @@ async function main() {
       );
       exit(1);
     }
-    const child = spawn(opencodeBin, args, {
-      stdio: 'inherit',
+
+    const bypassArgs = [...args];
+    if (!args.some((arg) => arg.startsWith('--log-level'))) {
+      bypassArgs.push('--log-level', 'ERROR');
+    }
+
+    const child = spawn(opencodeBin, bypassArgs, {
+      stdio: ['inherit', 'inherit', 'pipe'],
       env: process.env,
     });
+
+    child.stderr?.on('data', (data) => {
+      const lines = data.toString().split('\n');
+      const filtered = lines.filter(
+        (line) => !/^INFO\s+.*service=models\.dev.*refreshing/.test(line),
+      );
+      process.stderr.write(filtered.join('\n'));
+    });
+
     child.on('close', (code) => {
       exit(code ?? 0);
     });
