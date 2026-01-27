@@ -381,6 +381,30 @@ function hasTmux(): boolean {
 }
 
 async function main() {
+  const args = argv.slice(2);
+  const isCliCommand =
+    args.length > 0 &&
+    (['auth', 'config', 'plugins', 'update', 'completion'].includes(args[0]) ||
+      ['--version', '-v', '--help', '-h'].includes(args[0]));
+
+  if (isCliCommand) {
+    const opencodeBin = findOpencodeBin();
+    if (!opencodeBin) {
+      console.error(
+        'Error: Could not find "opencode" binary in PATH or common locations.',
+      );
+      exit(1);
+    }
+    const child = spawn(opencodeBin, args, {
+      stdio: 'inherit',
+      env: process.env,
+    });
+    child.on('close', (code) => {
+      exit(code ?? 0);
+    });
+    return;
+  }
+
   log('=== OpenCode Tmux Wrapper Started ===');
   log('Process argv:', JSON.stringify(argv));
   log('Current directory:', process.cwd());
@@ -408,7 +432,6 @@ async function main() {
   const env2 = { ...process.env };
   env2.OPENCODE_PORT = port.toString();
 
-  const args = argv.slice(2);
   log('User args:', JSON.stringify(args));
   
   const childArgs = ['--port', port.toString(), ...args];
