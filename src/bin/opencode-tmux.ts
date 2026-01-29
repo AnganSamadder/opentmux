@@ -222,6 +222,20 @@ function killZombieClients(): void {
   const currentPid = process.pid;
   const parentPid = process.ppid;
 
+  const wrapperCount = lines.filter(line => {
+    const trimmed = line.trim();
+    if (!trimmed) return false;
+    const match = trimmed.match(/^(\d+)\s+(\d+)\s+(.+)$/);
+    if (!match) return false;
+    const command = match[3];
+    return (command.includes('opencode-tmux.ts') || command.includes('bin/opencode-tmux')) && !command.includes('ps ');
+  }).length;
+
+  if (wrapperCount > 1) {
+    log(`Active sessions detected (${wrapperCount} wrappers), skipping zombie cleanup.`);
+    return;
+  }
+
   for (const line of lines) {
     const trimmed = line.trim();
     if (!trimmed) continue;
