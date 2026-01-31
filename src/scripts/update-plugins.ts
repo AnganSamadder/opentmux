@@ -12,6 +12,7 @@ const STATE_PATH = path.join(STATE_DIR, 'update-state.json');
 const UPDATE_INTERVAL_HOURS = 12;
 
 type OpencodeConfig = {
+  plugin?: string[];
   plugins?: string[];
   [key: string]: unknown;
 };
@@ -88,21 +89,36 @@ function saveConfig(config: OpencodeConfig): void {
 }
 
 function ensurePluginEntry(config: OpencodeConfig): string[] {
-  const existing = Array.isArray(config.plugins) ? [...config.plugins] : [];
-  const normalized = existing.map((plugin) =>
-    plugin === 'opencode-subagent-tmux' ? 'opencode-agent-tmux' : plugin
+  const existingPlugin = Array.isArray(config.plugin) ? [...config.plugin] : [];
+  const existingPlugins = Array.isArray(config.plugins) ? [...config.plugins] : [];
+  const existing = [...existingPlugin, ...existingPlugins];
+
+  const normalized = existing.map((entry) =>
+    entry === 'opencode-subagent-tmux' ? 'opencode-agent-tmux' : entry
   );
 
-  if (!normalized.includes('opencode-agent-tmux')) {
-    normalized.push('opencode-agent-tmux');
+  const deduped: string[] = [];
+  for (const entry of normalized) {
+    if (!deduped.includes(entry)) {
+      deduped.push(entry);
+    }
   }
 
-  if (JSON.stringify(existing) !== JSON.stringify(normalized)) {
-    config.plugins = normalized;
+  if (!deduped.includes('opencode-agent-tmux')) {
+    deduped.push('opencode-agent-tmux');
+  }
+
+  const changed =
+    JSON.stringify(existingPlugin) !== JSON.stringify(deduped) ||
+    'plugins' in config;
+
+  if (changed) {
+    config.plugin = deduped;
+    delete config.plugins;
     saveConfig(config);
   }
 
-  return normalized;
+  return deduped;
 }
 
 function installLatest(plugins: string[]): void {

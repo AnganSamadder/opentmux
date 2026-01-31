@@ -195,6 +195,13 @@ async function getData(): Promise<Data> {
 - Primary: `~/.config/opencode/opencode-agent-tmux.json`
 - Fallback: `{project}/opencode-agent-tmux.json`
 
+## OpenCode Config Safety (CRITICAL)
+
+- OpenCode uses `~/.config/opencode/opencode.json`.
+- The correct key for plugins is `"plugin"` (singular array). Never write `"plugins"`.
+- Do not create duplicate top-level keys when modifying JSON.
+- `~/.config/opencode/opencode-agent-tmux/` is reserved for plugin state (do not symlink plugin code here).
+
 ## Release Process
 
 This project uses GitHub Actions for automated releases. **Do NOT run `npm publish` manually.**
