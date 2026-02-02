@@ -1,12 +1,12 @@
 {
-  "name": "opencode-plugin-tmux",
+  "name": "opentmux",
   "version": "1.3.1",
   "description": "OpenCode tmux integration: automatically opens subagent panes and renders real-time agent execution with smart layouts",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "opencode-tmux": "./dist/bin/opencode-tmux.js"
+    "opentmux": "./dist/bin/opentmux.js"
   },
   "files": [
     "dist"
@@ -30,12 +30,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/AnganSamadder/opencode-tmux.git"
+    "url": "git+https://github.com/AnganSamadder/opentmux.git"
   },
   "bugs": {
-    "url": "https://github.com/AnganSamadder/opencode-tmux/issues"
+    "url": "https://github.com/AnganSamadder/opentmux/issues"
   },
-  "homepage": "https://github.com/AnganSamadder/opencode-tmux#readme",
+  "homepage": "https://github.com/AnganSamadder/opentmux#readme",
   "dependencies": {
     "zod": "^3.24.1"
   },

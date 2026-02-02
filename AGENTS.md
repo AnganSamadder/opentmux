@@ -87,7 +87,7 @@ import type { Plugin } from './types';
 
 | Type | Convention | Examples |
 |------|------------|----------|
-| **Files** | kebab-case | `tmux-session-manager.ts`, `opencode-tmux.ts` |
+| **Files** | kebab-case | `tmux-session-manager.ts`, `opentmux.ts` |
 | **Functions/Variables** | camelCase | `spawnTmuxPane`, `isInsideTmux`, `serverUrl` |
 | **Classes** | PascalCase | `TmuxSessionManager` |
 | **Types/Interfaces** | PascalCase | `PluginConfig`, `TmuxLayout` |
@@ -231,8 +231,8 @@ This project uses GitHub Actions for automated releases. **Do NOT run `npm publi
    ```
 
 5. **Verify:**
-   - Check https://github.com/AnganSamadder/opencode-tmux/actions
-   - Verify npm: `npm view opencode-plugin-tmux version`
+   - Check https://github.com/AnganSamadder/opentmux/actions
+   - Verify npm: `npm view opentmux version`
 
 ## Local Development
 

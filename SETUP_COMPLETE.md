@@ -79,7 +79,7 @@ Each instance works independently with its own tmux panes.
 │       ├── tmux.ts                 # Tmux utilities
 │       └── logger.ts               # Logging
 ├── bin/
-│   └── opencode-tmux               # Wrapper script (auto-port)
+│   └── opentmux               # Wrapper script (auto-port)
 ├── scripts/
 │   ├── install.sh                  # Auto-setup script
 │   └── install.js                  # Node fallback
@@ -114,7 +114,7 @@ Each instance works independently with its own tmux panes.
 ```bash
 # >>> opencode-agent-tmux >>>
 export OPENCODE_PORT=4096
-alias opencode='/Users/angansamadder/Code/opencode-agent-tmux/bin/opencode-tmux'
+alias opencode='/Users/angansamadder/Code/opencode-agent-tmux/bin/opentmux'
 # <<< opencode-agent-tmux <<<
 ```
 
@@ -125,7 +125,7 @@ alias opencode='/Users/angansamadder/Code/opencode-agent-tmux/bin/opencode-tmux'
 ```bash
 # 1. Verify alias
 which opencode
-# Should show: /Users/angansamadder/Code/opencode-agent-tmux/bin/opencode-tmux
+# Should show: /Users/angansamadder/Code/opencode-agent-tmux/bin/opentmux
 
 # 2. Check logs
 tail -f /tmp/opencode-agent-tmux.log

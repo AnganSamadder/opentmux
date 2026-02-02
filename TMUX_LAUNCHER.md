@@ -16,7 +16,7 @@ Add this to your `~/.zshrc`:
 
 ```bash
 # OpenCode with automatic tmux launching
-alias opencode='/Users/angansamadder/Code/opencode-agent-tmux/bin/opencode-tmux'
+alias opencode='/Users/angansamadder/Code/opencode-agent-tmux/bin/opentmux'
 ```
 
 Then reload your shell:
@@ -31,7 +31,7 @@ source ~/.zshrc
 export PATH="/Users/angansamadder/Code/opencode-agent-tmux/bin:$PATH"
 
 # Rename the wrapper to 'opencode' (this overrides the real opencode command)
-mv /Users/angansamadder/Code/opencode-agent-tmux/bin/opencode-tmux \
+mv /Users/angansamadder/Code/opencode-agent-tmux/bin/opentmux \
    /Users/angansamadder/Code/opencode-agent-tmux/bin/opencode
 ```
 

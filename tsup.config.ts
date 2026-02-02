@@ -3,7 +3,7 @@ import { defineConfig } from 'tsup';
 export default defineConfig({
   entry: {
     index: 'src/index.ts',
-    'bin/opencode-tmux': 'src/bin/opencode-tmux.ts',
+    'bin/opentmux': 'src/bin/opentmux.ts',
     'scripts/install': 'src/scripts/install.ts',
     'scripts/update-plugins': 'src/scripts/update-plugins.ts',
   },

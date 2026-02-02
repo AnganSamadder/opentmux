@@ -8,7 +8,7 @@ import os from "node:os";
 const HOME = os.homedir();
 const CONFIG_PATH = path.join(HOME, ".config", "opencode", "opencode.json");
 
-const NEW_STATE_DIR = path.join(HOME, ".config", "opencode", "opencode-tmux");
+const NEW_STATE_DIR = path.join(HOME, ".config", "opencode", "opentmux");
 const OLD_STATE_DIR = path.join(
   HOME,
   ".config",
@@ -22,7 +22,7 @@ function getStateDir(): string {
   }
   if (fs.existsSync(OLD_STATE_DIR)) {
     console.warn(
-      "Deprecation: Using legacy opencode-agent-tmux state directory. Please update to opencode-plugin-tmux",
+      "Deprecation: Using legacy opencode-agent-tmux state directory. Please update to opentmux",
     );
     return OLD_STATE_DIR;
   }
@@ -124,13 +124,13 @@ function ensurePluginEntry(config: OpencodeConfig): string[] {
       plugin === "opencode-subagent-tmux" ||
       plugin === "opencode-agent-tmux"
     ) {
-      return "opencode-tmux";
+      return "opentmux";
     }
     return plugin;
   });
 
-  if (!normalized.includes("opencode-tmux")) {
-    normalized.push("opencode-tmux");
+  if (!normalized.includes("opentmux")) {
+    normalized.push("opentmux");
   }
 
   if (JSON.stringify(existing) !== JSON.stringify(normalized)) {
@@ -153,10 +153,10 @@ function installLatest(plugins: string[]): void {
     const normalized = normalizePluginName(plugin);
     if (!normalized) continue;
 
-    // Use scoped package for opencode-tmux
+    // Use scoped package for opentmux
     const pkgName =
-      normalized === "opencode-tmux"
-        ? "opencode-plugin-tmux"
+      normalized === "opentmux"
+        ? "opentmux"
         : normalized;
     const target = `${pkgName}@latest`;
     spawnSync(npmCmd, ["install", "-g", target], { stdio: "ignore" });
@@ -169,7 +169,7 @@ function main(): void {
 
   const config = loadConfig() ?? {};
   const plugins = ensurePluginEntry(config);
-  const updateList = ["opencode-tmux", ...plugins];
+  const updateList = ["opentmux", ...plugins];
 
   installLatest(updateList);
   writeLastRun();

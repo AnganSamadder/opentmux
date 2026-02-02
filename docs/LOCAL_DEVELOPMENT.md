@@ -1,13 +1,13 @@
 # Local Development Setup
 
-This guide is for contributors who want to develop and test `opencode-tmux` locally.
+This guide is for contributors who want to develop and test `opentmux` locally.
 
 ## Quick Setup
 
 ```bash
 # Clone the repository (if you haven't already)
-git clone https://github.com/AnganSamadder/opencode-tmux.git
-cd opencode-tmux
+git clone https://github.com/AnganSamadder/opentmux.git
+cd opentmux
 
 # Install dependencies
 bun install
@@ -45,12 +45,12 @@ bun run typecheck
 ## How It Works
 
 ### For End Users (Global Install)
-When users run `npm install -g opencode-plugin-tmux`:
+When users run `npm install -g opentmux`:
 1. The package is installed to npm's global `node_modules`
-2. The `opencode-tmux` binary is added to npm's global bin directory
+2. The `opentmux` binary is added to npm's global bin directory
 3. The `postinstall` script automatically runs, which:
    - Detects the user's shell (bash/zsh/fish/powershell)
-   - Adds `alias opencode='opencode-tmux'` to their shell config
+   - Adds `alias opencode='opentmux'` to their shell config
    - Sets `OPENCODE_PORT=4096`
    - Removes old aliases from previous versions
 4. Users restart their terminal and run `opencode` to get tmux integration
@@ -58,7 +58,7 @@ When users run `npm install -g opencode-plugin-tmux`:
 ### For Contributors (Local Development)
 When you run `./scripts/dev-setup.sh`:
 1. The project is built locally
-2. A symlink is created: `npm-global-bin/opencode-tmux` → `local-repo/dist/bin/opencode-tmux.js`
+2. A symlink is created: `npm-global-bin/opentmux` → `local-repo/dist/bin/opentmux.js`
 3. Your shell alias (from a previous global install) now points to your local development version
 4. Changes you make will be reflected after running `bun run build`
 
@@ -67,7 +67,7 @@ When you run `./scripts/dev-setup.sh`:
 ### Test the Binary
 ```bash
 # Test help
-opencode-tmux --help
+opentmux --help
 
 # Test launching opencode with tmux
 opencode
@@ -80,7 +80,7 @@ node dist/scripts/install.js
 ```
 
 ### Test the Plugin
-1. Make sure `"opencode-plugin-tmux"` is in your `~/.config/opencode/opencode.json` plugin array
+1. Make sure `"opentmux"` is in your `~/.config/opencode/opencode.json` plugin array
 2. Run `opencode` and spawn an agent (like `explore` or `oracle`)
 3. Check if tmux panes are created automatically
 
@@ -97,7 +97,7 @@ Before publishing:
 ### Symlink not working
 ```bash
 # Check if symlink exists
-ls -la $(npm config get prefix)/bin/opencode-tmux
+ls -la $(npm config get prefix)/bin/opentmux
 
 # Recreate symlink
 ./scripts/dev-setup.sh
@@ -109,13 +109,13 @@ ls -la $(npm config get prefix)/bin/opencode-tmux
 bun run build
 
 # Verify symlink points to your local version
-which opencode-tmux
+which opentmux
 ```
 
 ### Alias not found
 ```bash
 # Reinstall globally to trigger postinstall
-npm install -g opencode-plugin-tmux@latest
+npm install -g opentmux@latest
 
 # Or run install script manually
 node dist/scripts/install.js

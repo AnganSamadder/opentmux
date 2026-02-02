@@ -1,6 +1,6 @@
 # Installation Guide
 
-Follow these steps to install and configure the **opencode-tmux** plugin.
+Follow these steps to install and configure the **opentmux** plugin.
 
 ## Prerequisites
 
@@ -13,8 +13,8 @@ Follow these steps to install and configure the **opencode-tmux** plugin.
 Run this one-liner in your terminal:
 
 ```bash
-git clone https://github.com/AnganSamadder/opencode-tmux.git ~/Code/opencode-tmux && \
-cd ~/Code/opencode-tmux && \
+git clone https://github.com/AnganSamadder/opentmux.git ~/Code/opentmux && \
+cd ~/Code/opentmux && \
 bun install && \
 bun run build
 ```
@@ -31,8 +31,8 @@ source ~/.zshrc  # or ~/.bashrc
    ```bash
    mkdir -p ~/Code
    cd ~/Code
-   git clone https://github.com/AnganSamadder/opencode-tmux.git
-   cd opencode-tmux
+   git clone https://github.com/AnganSamadder/opentmux.git
+   cd opentmux
    ```
 
 2. **Install dependencies**
@@ -51,7 +51,7 @@ source ~/.zshrc  # or ~/.bashrc
     ```json
     {
       "plugin": [
-        "/Users/YOUR_USERNAME/Code/opencode-tmux"
+        "/Users/YOUR_USERNAME/Code/opentmux"
       ]
     }
     ```

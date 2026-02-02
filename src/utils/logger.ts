@@ -2,7 +2,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 
-const NEW_LOG_FILE = path.join(os.tmpdir(), 'opencode-tmux.log');
+const NEW_LOG_FILE = path.join(os.tmpdir(), 'opentmux.log');
 const OLD_LOG_FILE = path.join(os.tmpdir(), 'opencode-agent-tmux.log');
 
 function getLogFile(): string {
@@ -11,7 +11,7 @@ function getLogFile(): string {
   }
   if (fs.existsSync(OLD_LOG_FILE)) {
     console.warn(
-      'Deprecation: Using legacy opencode-agent-tmux log file. Please update to opencode-plugin-tmux',
+      'Deprecation: Using legacy opencode-agent-tmux log file. Please update to opentmux',
     );
     return OLD_LOG_FILE;
   }

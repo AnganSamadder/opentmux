@@ -21,7 +21,7 @@ function loadConfig(directory: string): PluginConfig {
   const home = process.env.HOME ?? '';
   const configPaths = [
     {
-      path: path.join(directory, 'opencode-tmux.json'),
+      path: path.join(directory, 'opentmux.json'),
       legacy: false,
     },
     {
@@ -29,7 +29,7 @@ function loadConfig(directory: string): PluginConfig {
       legacy: true,
     },
     {
-      path: path.join(home, '.config', 'opencode', 'opencode-tmux.json'),
+      path: path.join(home, '.config', 'opencode', 'opentmux.json'),
       legacy: false,
     },
     {
@@ -43,7 +43,7 @@ function loadConfig(directory: string): PluginConfig {
       if (fs.existsSync(configPath)) {
         if (legacy) {
           console.warn(
-            'Deprecation: Using legacy opencode-agent-tmux config. Please update to opencode-plugin-tmux',
+            'Deprecation: Using legacy opencode-agent-tmux config. Please update to opentmux',
           );
         }
         const content = fs.readFileSync(configPath, 'utf-8');
@@ -93,7 +93,7 @@ const OpencodeTmux: Plugin = async (ctx) => {
   const tmuxSessionManager = new TmuxSessionManager(ctx, tmuxConfig, serverUrl);
 
   return {
-    name: 'opencode-tmux',
+    name: 'opentmux',
 
     event: async (input) => {
       await tmuxSessionManager.onSessionCreated(

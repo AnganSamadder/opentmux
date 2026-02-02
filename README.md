@@ -1,7 +1,7 @@
-# opencode-plugin-tmux
+# opentmux
 
-[![npm version](https://img.shields.io/npm/v/opencode-plugin-tmux.svg)](https://www.npmjs.com/package/opencode-plugin-tmux)
-[![npm downloads](https://img.shields.io/npm/dt/opencode-plugin-tmux)](https://www.npmjs.com/package/opencode-plugin-tmux)
+[![npm version](https://img.shields.io/npm/v/opentmux.svg)](https://www.npmjs.com/package/opentmux)
+[![npm downloads](https://img.shields.io/npm/dt/opentmux)](https://www.npmjs.com/package/opentmux)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 An [OpenCode](https://opencode.ai) plugin that provides **smart tmux integration** for viewing agent execution in real-time. Automatically spawns panes, streams output, and manages your terminal workspace.
@@ -9,7 +9,7 @@ An [OpenCode](https://opencode.ai) plugin that provides **smart tmux integration
 - **Agent-Agnostic**: Works with oh-my-opencode, omoc-slim, or vanilla OpenCode.
 - **Cross-Platform**: Full support for **macOS**, **Linux**, and **Windows** (via PowerShell or WSL).
 
-![Opencode Agent Tmux Demo](https://raw.githubusercontent.com/angansamadder/opencode-tmux/main/assets/demo.png)
+![Opencode Agent Tmux Demo](https://raw.githubusercontent.com/angansamadder/opentmux/main/assets/demo.png)
 *Note: The demo shows the "sisyphus" agent from [oh-my-opencode](https://github.com/code-yeongyu/oh-my-opencode), but this plugin supports ALL OpenCode subagents.*
 
 ## Installation
@@ -19,7 +19,7 @@ An [OpenCode](https://opencode.ai) plugin that provides **smart tmux integration
 Paste this into any LLM agent (OpenCode, Claude Code, Cursor, etc.):
 
 ```text
-Install the opencode-plugin-tmux plugin by following: https://raw.githubusercontent.com/AnganSamadder/opencode-tmux/main/README.md
+Install the opentmux plugin by following: https://raw.githubusercontent.com/AnganSamadder/opentmux/main/README.md
 ```
 
 <details>
@@ -29,17 +29,17 @@ To install this plugin, please perform the following steps for the user:
 
 1.  **Install the NPM package globally:**
     ```bash
-    npm install -g opencode-plugin-tmux
+    npm install -g opentmux
     ```
     *Note: This installer automatically configures the user's shell (Bash/Zsh/Fish/PowerShell) to use the smart wrapper.*
 
 2.  **Configure OpenCode:**
-    Add `"opencode-plugin-tmux"` to the `plugin` array in the user's config file (usually `~/.config/opencode/opencode.json`).
+    Add `"opentmux"` to the `plugin` array in the user's config file (usually `~/.config/opencode/opencode.json`).
 
     ```json
     {
       "plugin": [
-        "opencode-plugin-tmux"
+        "opentmux"
       ]
     }
     ```
@@ -54,16 +54,16 @@ To install this plugin, please perform the following steps for the user:
 
 1.  **Install via NPM:**
     ```bash
-    npm install -g opencode-plugin-tmux
+    npm install -g opentmux
     ```
     *The installer automatically configures your shell to use the smart wrapper.*
 
 2.  **Enable the Plugin:**
-    Add `"opencode-plugin-tmux"` to your `~/.config/opencode/opencode.json`:
+    Add `"opentmux"` to your `~/.config/opencode/opencode.json`:
     ```json
     {
       "plugin": [
-        "opencode-plugin-tmux"
+        "opentmux"
       ]
     }
     ```
@@ -86,7 +86,7 @@ For contributors working on this plugin locally, see [LOCAL_DEVELOPMENT.md](docs
 
 ## ⚙️ Configuration
 
-You can customize behavior by creating `~/.config/opencode/opencode-tmux.json`:
+You can customize behavior by creating `~/.config/opencode/opentmux.json`:
 
 ```json
 {
@@ -111,7 +111,7 @@ You can customize behavior by creating `~/.config/opencode/opencode-tmux.json`:
 ### Panes Not Spawning
 1. Verify you're inside tmux: `echo $TMUX`
 2. Check tmux is installed: `which tmux` (or `where tmux` on Windows)
-3. Check logs: `cat /tmp/opencode-tmux.log`
+3. Check logs: `cat /tmp/opentmux.log`
 
 ### Server Not Found
 Make sure OpenCode is started with the `--port` flag matching your config (the wrapper does this automatically).

@@ -54,12 +54,12 @@ function getAliasContent(shellName: string): string {
   if (shellName === 'powershell') {
     return `
 function opencode {
-    opencode-tmux $args
+    opentmux $args
 }
 `;
   }
   
-  return `alias opencode='opencode-tmux'`;
+  return `alias opencode='opentmux'`;
 }
 
 function getExportLine(): string {
@@ -70,7 +70,7 @@ function setupAlias(): void {
   const shell = detectShell();
   
   console.log('');
-  console.log('🔧 Setting up opencode-tmux auto-launcher...');
+  console.log('🔧 Setting up opentmux auto-launcher...');
   console.log(`   Detected shell: ${shell.name}`);
   console.log(`   Config file: ${shell.rcFile}`);
   
@@ -88,8 +88,8 @@ function setupAlias(): void {
   let rcContent = fs.readFileSync(shell.rcFile, 'utf-8');
   const aliasContent = getAliasContent(shell.name);
   
-  const MARKER_START = '# >>> opencode-tmux >>>';
-  const MARKER_END = '# <<< opencode-tmux <<<';
+  const MARKER_START = '# >>> opentmux >>>';
+  const MARKER_END = '# <<< opentmux <<<';
   
   const OLD_MARKER_START = '# >>> opencode-agent-tmux >>>';
   const OLD_MARKER_END = '# <<< opencode-agent-tmux <<<';
@@ -109,7 +109,7 @@ function setupAlias(): void {
 
   if (rcContent.includes(OLD_MARKER_START)) {
     console.log('   Updating legacy opencode-agent-tmux alias...');
-    console.warn('   Deprecation: Using legacy opencode-agent-tmux markers. Updating to opencode-tmux.');
+    console.warn('   Deprecation: Using legacy opencode-agent-tmux markers. Updating to opentmux.');
     const regex = new RegExp(`${escapeRegExp(OLD_MARKER_START)}[\\s\\S]*?${escapeRegExp(OLD_MARKER_END)}\\n?`, 'g');
     rcContent = rcContent.replace(regex, '');
     fs.writeFileSync(shell.rcFile, rcContent, 'utf-8');
@@ -117,7 +117,7 @@ function setupAlias(): void {
   }
 
   if (rcContent.includes(MARKER_START)) {
-    console.log('   Updating opencode-tmux alias...');
+    console.log('   Updating opentmux alias...');
     const regex = new RegExp(`${escapeRegExp(MARKER_START)}[\\s\\S]*?${escapeRegExp(MARKER_END)}\\n?`, 'g');
     
     rcContent = rcContent.replace(regex, '');
