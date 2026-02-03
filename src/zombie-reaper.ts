@@ -188,7 +188,7 @@ export class ZombieReaper {
           this.markAsZombie(proc.pid);
           
           if (this.shouldKill(proc.pid)) {
-            await this.reap(proc);
+            await this.reapProcess(proc);
           }
         } else {
           // It's active, remove from candidates if it was there
@@ -219,11 +219,21 @@ export class ZombieReaper {
   private areUrlsEqual(url1: string | null, url2: string): boolean {
     if (!url1) return false;
     try {
-      // Normalize by creating URL objects (handles trailing slashes, etc)
-      // If url2 doesn't have protocol, assume http
-      const u1 = new URL(url1);
-      const u2 = new URL(url2.startsWith('http') ? url2 : `http://${url2}`);
-      return u1.origin === u2.origin;
+      // Helper to normalize URL strings
+      const normalize = (u: string) => {
+        // Add protocol if missing
+        if (!u.match(/^https?:\/\//)) {
+          u = `http://${u}`;
+        }
+        const urlObj = new URL(u);
+        // Normalize localhost to 127.0.0.1 for comparison
+        if (urlObj.hostname === 'localhost') {
+          urlObj.hostname = '127.0.0.1';
+        }
+        return urlObj.origin;
+      };
+
+      return normalize(url1) === normalize(url2);
     } catch {
       return url1 === url2;
     }
@@ -239,9 +249,15 @@ export class ZombieReaper {
 
       // Extract session ID
       const sessionMatch = command.match(/--session\s+([a-zA-Z0-9_-]+)/);
-      // Extract URL (usually the first non-flag argument or explicitly ?)
-      // Command looks like: opencode attach http://127.0.0.1:4096/ --session ...
-      const urlMatch = command.match(/attach\s+(http:\/\/[^\s]+)/);
+      
+      // Extract URL. We want the first non-flag argument after 'attach'.
+      // If the command follows our pattern: opencode attach <url> --session ...
+      // Then <url> is immediate.
+      // But we should be robust against: opencode attach --session ... <url> (if that was valid)
+      // The current tmux.ts ALWAYS puts URL first: `opencode attach ${serverUrl} ...`
+      // So we can just capture the first token after attach.
+      // We removed the hardcoded 'http://' prefix requirement.
+      const urlMatch = command.match(/attach\s+([^\s]+)/);
 
       if (sessionMatch && sessionMatch[1]) {
         results.push({
@@ -312,7 +328,7 @@ export class ZombieReaper {
     return meetsCount && meetsGrace;
   }
 
-  private async reap(proc: AttachProcess): Promise<void> {
+  private async reapProcess(proc: AttachProcess): Promise<void> {
     log('[zombie-reaper] REAPING ZOMBIE', { pid: proc.pid, sessionId: proc.sessionId });
     
     safeKill(proc.pid, 'SIGTERM');
