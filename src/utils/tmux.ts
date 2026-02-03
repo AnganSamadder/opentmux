@@ -255,7 +255,8 @@ async function tryApplyMainVerticalMultiColumnLayout(
   const mainPaneId = panes[0] ?? currentPaneId;
   const agentPaneIds = panes.slice(1);
   const columns = groupAgentsByColumn(agentPaneIds, maxAgentsPerColumn);
-  if (columns.length <= 1) {
+  
+  if (columns.length === 0) {
     return false;
   }
 
@@ -276,7 +277,8 @@ async function tryApplyMainVerticalMultiColumnLayout(
       wpColumns.push(wpIds);
     }
   }
-  if (wpColumns.length <= 1) return false;
+  
+  if (wpColumns.length === 0) return false;
 
   const layoutString = buildMainVerticalMultiColumnLayoutString({
     windowWidth: size.width,
@@ -288,14 +290,14 @@ async function tryApplyMainVerticalMultiColumnLayout(
 
   const result = await spawnAsyncFn([tmux, 'select-layout', layoutString]);
   if (result.exitCode === 0) {
-    log('[tmux] applyTmuxLayout: applied multi-column layout', {
+    log('[tmux] applyTmuxLayout: applied custom layout', {
       columns: wpColumns.length,
       mainPanePercent,
     });
     return true;
   }
 
-  log('[tmux] applyTmuxLayout: multi-column layout failed', {
+  log('[tmux] applyTmuxLayout: custom layout failed', {
     exitCode: result.exitCode,
     stderr: result.stderr.trim(),
   });
