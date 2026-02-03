@@ -360,7 +360,7 @@ function hasTmux(): boolean {
 async function main() {
   const args = argv.slice(2);
 
-  if (args.includes('--reap')) {
+  if (args.includes('--reap') || args.includes('-reap')) {
     await ZombieReaper.reapAll();
     exit(0);
   }
