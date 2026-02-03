@@ -5,14 +5,23 @@ on:
     branches:
       - main
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+
 permissions:
   contents: write
   pull-requests: write
 
 jobs:
-  release-please:
+  process:
     runs-on: ubuntu-latest
+    outputs:
+      releases_created: ${{ steps.release-please.outputs.releases_created }}
+      prs_created: ${{ steps.release-please.outputs.prs_created }}
     steps:
       - uses: google-github-actions/release-please-action@v4
+        id: release-please
         with:
+          token: ${{ secrets.GITHUB_TOKEN }}
           release-type: node
+          skip-github-pull-request: false
