@@ -49,6 +49,11 @@ function createTestConfig(overrides: Partial<TmuxConfig> = {}): TmuxConfig {
     max_retry_attempts: 2,
     layout_debounce_ms: 150,
     max_agents_per_column: 3,
+    // Reaper defaults
+    reaper_enabled: true,
+    reaper_interval_ms: 30000,
+    reaper_min_zombie_checks: 3,
+    reaper_grace_period_ms: 5000,
     ...overrides,
   };
 }

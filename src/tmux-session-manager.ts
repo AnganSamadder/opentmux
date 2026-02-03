@@ -7,6 +7,7 @@ import {
 } from './config';
 import { SpawnQueue, type SpawnRequest } from './spawn-queue';
 import { closeTmuxPane, isInsideTmux, log, spawnTmuxPane, applyTmuxLayout } from './utils';
+import { ZombieReaper } from './zombie-reaper';
 
 type OpencodeClient = PluginInput['client'];
 
@@ -35,6 +36,7 @@ export class TmuxSessionManager {
   private shuttingDown = false;
   private spawnQueue: SpawnQueue;
   private layoutDebounceTimer?: ReturnType<typeof setTimeout>;
+  private reaper: ZombieReaper;
 
   constructor(ctx: PluginInput, tmuxConfig: TmuxConfig, serverUrl: string) {
     this.client = ctx.client;
@@ -55,6 +57,13 @@ export class TmuxSessionManager {
       },
     });
 
+    this.reaper = new ZombieReaper(this.serverUrl, {
+      enabled: tmuxConfig.reaper_enabled,
+      intervalMs: tmuxConfig.reaper_interval_ms,
+      minZombieChecks: tmuxConfig.reaper_min_zombie_checks,
+      gracePeriodMs: tmuxConfig.reaper_grace_period_ms,
+    });
+
     log('[tmux-session-manager] initialized', {
       enabled: this.enabled,
       tmuxConfig: this.tmuxConfig,
@@ -63,6 +72,12 @@ export class TmuxSessionManager {
 
     if (this.enabled) {
       this.registerShutdownHandlers();
+      
+      // Start reaper
+      this.reaper.start();
+      void this.reaper.scanOnce().catch(err => 
+        log('[tmux-session-manager] initial reaper scan failed', { error: String(err) })
+      );
     }
   }
 
@@ -156,9 +171,15 @@ export class TmuxSessionManager {
         string,
         { type: string }
       >;
+      
+      const statusCount = Object.keys(allStatuses).length;
+      log('[tmux-session-manager] poll status', { 
+        serverSessions: statusCount,
+        trackedSessions: this.sessions.size 
+      });
 
       const now = Date.now();
-      const sessionsToClose: string[] = [];
+      const sessionsToClose: { id: string; reason: string }[] = [];
 
       for (const [sessionId, tracked] of this.sessions.entries()) {
         const status = allStatuses[sessionId];
@@ -178,13 +199,17 @@ export class TmuxSessionManager {
 
         const isTimedOut = now - tracked.createdAt > SESSION_TIMEOUT_MS;
 
-        if (isIdle || missingTooLong || isTimedOut) {
-          sessionsToClose.push(sessionId);
+        if (isIdle) {
+          sessionsToClose.push({ id: sessionId, reason: 'idle' });
+        } else if (missingTooLong) {
+          sessionsToClose.push({ id: sessionId, reason: 'missing_too_long' });
+        } else if (isTimedOut) {
+          sessionsToClose.push({ id: sessionId, reason: 'timeout' });
         }
       }
 
-      for (const sessionId of sessionsToClose) {
-        await this.closeSession(sessionId);
+      for (const item of sessionsToClose) {
+        await this.closeSession(item.id, item.reason);
       }
     } catch (err) {
       log('[tmux-session-manager] poll error', { error: String(err) });
@@ -232,17 +257,23 @@ export class TmuxSessionManager {
     }
   }
 
-  private async closeSession(sessionId: string): Promise<void> {
+  private async closeSession(sessionId: string, reason: string): Promise<void> {
     const tracked = this.sessions.get(sessionId);
     if (!tracked) return;
 
     log('[tmux-session-manager] closing session pane', {
       sessionId,
       paneId: tracked.paneId,
+      reason,
     });
 
     await closeTmuxPane(tracked.paneId);
     this.sessions.delete(sessionId);
+    
+    log('[tmux-session-manager] session closed', { 
+      sessionId,
+      remainingSessions: this.sessions.size 
+    });
 
     if (this.sessions.size === 0) {
       this.stopPolling();
@@ -264,6 +295,13 @@ export class TmuxSessionManager {
     if (this.layoutDebounceTimer) {
       clearTimeout(this.layoutDebounceTimer);
       this.layoutDebounceTimer = undefined;
+    }
+    
+    // Shutdown reaper (runs final scan)
+    if (this.reaper) {
+      await this.reaper.shutdown().catch(err => 
+        log('[tmux-session-manager] reaper shutdown error', { error: String(err) })
+      );
     }
 
     if (this.sessions.size > 0) {

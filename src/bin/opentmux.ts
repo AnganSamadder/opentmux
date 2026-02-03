@@ -7,6 +7,7 @@ import { existsSync, appendFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
+import { ZombieReaper } from '../zombie-reaper';
 
 const OPENCODE_PORT_START = parseInt(env.OPENCODE_PORT || '4096', 10);
 const OPENCODE_PORT_MAX = OPENCODE_PORT_START + 10;
@@ -358,6 +359,12 @@ function hasTmux(): boolean {
 
 async function main() {
   const args = argv.slice(2);
+
+  if (args.includes('--reap')) {
+    await ZombieReaper.reapAll();
+    exit(0);
+  }
+
   const isCliCommand =
     args.length > 0 &&
     (['auth', 'config', 'plugins', 'update', 'completion', 'stats'].includes(args[0]) ||

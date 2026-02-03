@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-02-03
+
+### Features
+* **Zombie Reaper**: Introduced a new system to automatically detect and clean up orphaned "opencode attach" processes that persist after sessions end.
+  * Added `ZombieReaper` class that safely identifies zombies by verifying session status with the server.
+  * Added background reaping (default interval: 30s) to `TmuxSessionManager`.
+  * Added CLI command `opentmux --reap` for manual global cleanup of zombie processes.
+* **Safety**: Reaper strictly validates that processes belong to the current server instance before killing them, preventing accidental termination of other active OpenCode instances.
+
+### Fixes
+* Fixed memory leak where `opencode attach` processes would remain running indefinitely after their parent tmux pane or session was closed.
+
 ## [1.3.2](https://github.com/AnganSamadder/opentmux/compare/v1.3.1...v1.3.2) (2026-02-03)
 
 

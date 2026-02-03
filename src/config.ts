@@ -18,6 +18,12 @@ export const TmuxConfigSchema = z.object({
   max_retry_attempts: z.number().min(0).max(5).default(2),
   layout_debounce_ms: z.number().min(50).max(1000).default(150),
   max_agents_per_column: z.number().min(1).max(10).default(3),
+  
+  // Reaper config
+  reaper_enabled: z.boolean().default(true),
+  reaper_interval_ms: z.number().default(30000),
+  reaper_min_zombie_checks: z.number().default(3),
+  reaper_grace_period_ms: z.number().default(5000),
 });
 
 export type TmuxConfig = z.infer<typeof TmuxConfigSchema>;
@@ -32,6 +38,12 @@ export const PluginConfigSchema = z.object({
   max_retry_attempts: z.number().min(0).max(5).default(2),
   layout_debounce_ms: z.number().min(50).max(1000).default(150),
   max_agents_per_column: z.number().min(1).max(10).default(3),
+  
+  // Reaper config
+  reaper_enabled: z.boolean().default(true),
+  reaper_interval_ms: z.number().default(30000),
+  reaper_min_zombie_checks: z.number().default(3),
+  reaper_grace_period_ms: z.number().default(5000),
 });
 
 export type PluginConfig = z.infer<typeof PluginConfigSchema>;

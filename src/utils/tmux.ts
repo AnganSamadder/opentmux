@@ -6,6 +6,12 @@ import {
   mainPanePercentForColumns,
 } from '../layout';
 import { log } from './logger';
+import { 
+  getProcessChildren, 
+  getProcessCommand, 
+  safeKill, 
+  waitForProcessExit 
+} from './process';
 
 const BASE_BACKOFF_MS = 250;
 
@@ -493,8 +499,38 @@ export async function closeTmuxPane(paneId: string): Promise<boolean> {
     return false;
   }
 
+  // PID-level termination
   try {
-    const result = await spawnAsync([tmux, 'kill-pane', '-t', paneId]);
+    const pidResult = await spawnAsyncFn([tmux, 'list-panes', '-t', paneId, '-F', '#{pane_pid}']);
+    if (pidResult.exitCode === 0) {
+      const shellPid = parseInt(pidResult.stdout.trim(), 10);
+      if (Number.isFinite(shellPid)) {
+        log('[tmux] closeTmuxPane: found shell PID', { paneId, shellPid });
+        
+        const children = getProcessChildren(shellPid);
+        for (const childPid of children) {
+          const command = getProcessCommand(childPid);
+          if (command && command.includes('opencode')) {
+            log('[tmux] closeTmuxPane: killing child attach process', { childPid, command });
+            
+            safeKill(childPid, 'SIGTERM');
+            const exited = await waitForProcessExit(childPid, 2000);
+            
+            if (!exited) {
+              log('[tmux] closeTmuxPane: process did not exit, sending SIGKILL', { childPid });
+              safeKill(childPid, 'SIGKILL');
+            }
+          }
+        }
+      }
+    }
+  } catch (err) {
+    log('[tmux] closeTmuxPane: error during PID termination', { error: String(err) });
+    // Continue to close pane anyway
+  }
+
+  try {
+    const result = await spawnAsyncFn([tmux, 'kill-pane', '-t', paneId]);
 
     log('[tmux] closeTmuxPane: result', {
       exitCode: result.exitCode,
