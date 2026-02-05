@@ -360,15 +360,33 @@ function hasTmux(): boolean {
 async function main() {
   const args = argv.slice(2);
 
+  // Check for opentmux-specific flags first
   if (args.includes('--reap') || args.includes('-reap')) {
     await ZombieReaper.reapAll();
     exit(0);
   }
 
-  const isCliCommand =
-    args.length > 0 &&
-    (['auth', 'config', 'plugins', 'update', 'completion', 'stats'].includes(args[0]) ||
-      ['--version', '-v', '--help', '-h'].includes(args[0]));
+  // Define known CLI commands that should NOT trigger a tmux session
+  // These are commands that either:
+  // 1. Run quickly and exit (CLI tools)
+  // 2. Are server/daemon processes that manage their own lifecycle
+  // 3. Are help/version flags
+  const NON_TUI_COMMANDS = [
+    // Core CLI commands
+    'auth', 'config', 'plugins', 'update', 'completion', 'stats',
+    'run', 'exec', 'doctor', 'debug', 'clean', 'uninstall',
+    
+    // Agent/Session management
+    'agent', 'session', 'export', 'import', 'github', 'pr',
+    
+    // Server commands (usually run in fg, don't need tmux wrapper)
+    'serve', 'web', 'acp', 'mcp', 'models',
+    
+    // Flags
+    '--version', '-v', '--help', '-h'
+  ];
+
+  const isCliCommand = args.length > 0 && NON_TUI_COMMANDS.includes(args[0]);
 
   if (isCliCommand) {
     const opencodeBin = findOpencodeBin();
