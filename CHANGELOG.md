@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.7] - 2026-02-05
+
+### Fixed
+- **CLI Argument Handling**: Improved logic to correctly identify CLI commands (like `config`, `auth`, `agent`) versus TUI commands, ensuring arguments are passed correctly.
+- **Graceful Shutdown**: Fixed issue where `AbortError` (code 20) during interrupt (Ctrl+C) was logged as a fatal error. Now handles it cleanly by exiting with code 0.
+- **Zombie Reaper Flag**: Fixed `--reap` flag handling to ensure it executes the reaper logic instead of passing it to opencode.
+
+## [1.4.6] - 2026-02-05
+
+### Fixed
+- Internal release with CLI logic improvements. Superseded by 1.4.7.
+
 ## [1.4.5] - 2025-02-04
 
 ### Fixed
