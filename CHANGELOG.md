@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.5](https://github.com/AnganSamadder/opentmux/compare/v1.4.4...v1.4.5) (2026-02-06)
+
+
+### Bug Fixes
+
+* improve argument parsing to correctly handle -reap and CLI commands ([1228616](https://github.com/AnganSamadder/opentmux/commit/12286165cfebb1948992b8584127423d4c20652b))
+* make zombie reaper fail-safe and robust to API changes ([ee71ead](https://github.com/AnganSamadder/opentmux/commit/ee71eadcd4084bb8c7ded2d0e3ab54a8b725d1ad))
+
 ## [1.4.7] - 2026-02-05
 
 ### Fixed
