@@ -370,8 +370,10 @@ async function main() {
   ];
 
   const isCliCommand = args.length > 0 && NON_TUI_COMMANDS.includes(args[0]);
+  const isInteractiveMode = args.length === 0;
 
-  if (isCliCommand) {
+  // For CLI commands and interactive mode (no args), bypass tmux
+  if (isCliCommand || isInteractiveMode) {
     const opencodeBin = findOpencodeBin();
     if (!opencodeBin) {
       console.error(
