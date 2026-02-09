@@ -6,7 +6,7 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "opentmux": "./dist/bin/opentmux.js"
+    "opentmux": "dist/bin/opentmux.js"
   },
   "files": [
     "dist"
