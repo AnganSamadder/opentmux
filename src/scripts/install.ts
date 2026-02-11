@@ -59,15 +59,11 @@ function opencode {
 function oc {
     opentmux $args
 }
-function cc {
-    claude --allow-dangerously-skip-permissions $args
-}
 `;
   }
   
   return `alias opencode='opentmux'
-alias oc='opentmux'
-alias cc='claude --allow-dangerously-skip-permissions'`;
+alias oc='opentmux'`;
 }
 
 function getExportLine(): string {
