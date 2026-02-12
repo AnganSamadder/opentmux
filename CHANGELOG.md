@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0](https://github.com/AnganSamadder/opentmux/compare/v1.5.6...v1.6.0) (2026-02-12)
+
+
+### Features
+
+* add 'oc' alias for opentmux and 'cc' alias for claude ([8fae996](https://github.com/AnganSamadder/opentmux/commit/8fae996d7d8f2662b9e99238fe1bb2ee4ecf3545))
+
+
+### Bug Fixes
+
+* actually remove registry-url to prevent token injection ([4e6d73e](https://github.com/AnganSamadder/opentmux/commit/4e6d73ef9b7bd9ceeb178e70ac686a852dedd021))
+* add registry-url to enable npm OIDC auth path ([63a8b72](https://github.com/AnganSamadder/opentmux/commit/63a8b7297680f725cb8d9af4fac2755a118cc099))
+* add token clearing like working package ([f8162e4](https://github.com/AnganSamadder/opentmux/commit/f8162e4bdaae7e7b738ea26da0b8bfcf8fe52038))
+* ensure interactive mode launches tmux session ([d3444ed](https://github.com/AnganSamadder/opentmux/commit/d3444ed28d02632acd25fb043430984b9789192d))
+* remove 'cc' alias from opentmux install script ([8d9d217](https://github.com/AnganSamadder/opentmux/commit/8d9d21731f4094d80b7c46a79b82fd0212955123))
+* remove empty token env vars blocking OIDC ([4bb524d](https://github.com/AnganSamadder/opentmux/commit/4bb524d92e15a37e54fee3529af376c3d3e8fcd0))
+
 ## [1.5.6](https://github.com/AnganSamadder/opentmux/compare/v1.5.5...v1.5.6) (2026-02-11)
 
 
