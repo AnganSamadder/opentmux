@@ -1,0 +1,29 @@
+{
+  "_comment": "Golden fixture for default-config command sequence. Update with care — any change here documents an intentional behavior change.",
+  "_flags": {
+    "tui_graceful_shutdown": true,
+    "tui_conditional_layout_reapply": true,
+    "tui_silent_refresh_after_close": true,
+    "tui_sh_exec_wrapper": false,
+    "tui_explicit_mode_reset": false,
+    "tui_ghostty_hardening": false
+  },
+  "spawnCommands": [
+    ["which", "tmux"],
+    ["tmux", "-V"],
+    ["tmux", "split-window", "-h", "-d", "-P", "-F", "#{pane_id}", "opencode attach 'http://localhost:4096' --session 'session-default'"],
+    ["tmux", "select-pane", "-t", "%5", "-T", "Default Config Regression"]
+  ],
+  "closeCommands": [
+    ["which", "tmux"],
+    ["tmux", "-V"],
+    ["tmux", "list-panes", "-t", "%1", "-F", "#{pane_pid}"],
+    ["tmux", "kill-pane", "-t", "%1"],
+    ["tmux", "list-panes", "-F", "#{pane_id}"],
+    ["tmux", "display-message", "-p", "#{window_width} #{window_height}"],
+    ["tmux", "display-message", "-p", "#{pane_id}"],
+    ["tmux", "list-panes", "-F", "#{pane_id}"],
+    ["tmux", "select-layout", "582d,200x50,0,0{120x50,0,0,1,79x50,121,0,2}"],
+    ["tmux", "refresh-client", "-S"]
+  ]
+}
