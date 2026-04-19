@@ -72,12 +72,43 @@ Rejected. The consolidated diagnostic matrix marks all five experiments as uncha
 
 ## Recommended Minimum Fix Set
 
-1. **KEEP / validate first: T12, T13, T14.** T12 remains warranted because it protects the cleanup path that OpenCode demonstrably performs well on signal, and T13/T14 remain the best available close/redraw defense-in-depth tasks even though the one-line diagnostic variants alone did not solve the crash-path harness. See `.sisyphus/evidence/tui-hijack/strace-analysis.md:108-122` and `.sisyphus/evidence/tui-hijack/diag-summary.md:26-31`.
-2. **KEEP: T18.** Shell-escaping hardening is orthogonal safety work and is not contradicted by any Phase 0 evidence. See `.sisyphus/plans/tui-input-hijack-fix.md:1663-1676`.
-3. **DEFER, do not cut yet: T11.** Diag-2 was unchanged, so `select-pane -T` is not implicated by current evidence, but the task should remain deferred rather than cut because the plan explicitly reserves CUT authority for evidence-backed conclusions and Phase 0 did not prove the final production fix stack yet. See `.sisyphus/evidence/tui-hijack/diag-2-select-pane.md:21-36` and `.sisyphus/evidence/tui-hijack/diag-summary.md:26-31`.
-4. **DEFER, do not cut yet: T15 and T16.** Phase 0 did not show enough evidence to promote these hardening tasks into the minimum set, but it also did not disprove their value for residual close-path issues after live validation. See `.sisyphus/evidence/tui-hijack/diag-summary.md:28-31` and `.sisyphus/evidence/tui-hijack/opencode-issues-scan.md:42-54`.
-5. **CUT: T17.** `~~T17 (Ghostty-specific reset path)~~ CUT: TERM_PROGRAM is not propagated into tmux panes, so the planned detection signal is unreliable in exactly the environment this feature targets.` See `.sisyphus/evidence/tui-hijack/term-program-analysis.md:1-4` and `.sisyphus/plans/tui-input-hijack-fix.md:1594-1608`.
-6. **Spawn-side live validation to run before broad tmux-side surgery: apply the T5 finding.** The highest-impact single change from Phase 0 is prepending `env OPENCODE_DISABLE_MOUSE=1` to the plugin spawn command because OpenCode explicitly supports that path and upstream issue history says tmux breakage often clusters around mouse capture. See `.sisyphus/evidence/tui-hijack/opencode-cli-flags.md:35-71` and `.sisyphus/evidence/tui-hijack/opencode-issues-scan.md:21-40`.
+1. **IMPLEMENTED: T12, T13, T14.** T12 protects the cleanup path that OpenCode performs on signal. T13 and T14 provide defense-in-depth for close and redraw sequencing. See `src/utils/tmux.ts:540-588` (T12), `src/utils/tmux.ts:608-630` (T13), and `src/utils/tmux.ts:620-626` (T14).
+2. **IMPLEMENTED: T18.** Shell-escaping for `sessionId` and `serverUrl` ensures command safety. See `src/utils/tmux.ts:390`.
+3. **IMPLEMENTED: T15 and T16.** These hardening tasks are now available as opt-in flags. T15 provides an `sh -c exec` wrapper to skip shell-rc side effects. T16 allows explicit DEC mode-reset injection before closing. See `src/utils/tmux.ts:393-395` (T15) and `src/utils/tmux.ts:547-556` (T16).
+4. **DEFER: T11.** `select-pane -T` remains in place as Diag-2 was inconclusive.
+5. **CUT: T17.** Ghostty-specific reset path was removed because `TERM_PROGRAM` does not propagate into tmux panes.
+6. **IMPLEMENTED: T8, T9.** Added TUI-isolation configuration flags and escape-sequence scrubbing utility. See `src/config.ts:23-28` and `src/utils/escape-codes.ts`.
+7. **IMPLEMENTED: T21, T22.** Added integration tests for concurrent close corruption and regression guards for default behavior. See `src/__tests__/tmux.integration.test.ts` and `src/__tests__/backcompat.test.ts`.
+
+## Validation Results
+
+| Task | Commit | Fix | Evidence/Test |
+| :--- | :--- | :--- | :--- |
+| T12 | 30b4d79 | SIGINT-first graceful shutdown; prevents forced-kill bypass of OpenCode cleanup | `src/__tests__/tmux-close.test.ts:153-180` |
+| T13 | 6bace98 | Skip layout reapply when ≤1 pane remains; prevents spurious redraw triggering alt-screen flicker | `src/__tests__/tmux-close.test.ts:280-307` |
+| T14 | f8d9225 | refresh-client -S (silent) instead of full select-layout redraw; reduces terminal state disturbance | `src/__tests__/tmux-close.test.ts:96-123` |
+| T15 | 80c1d6f | Optional sh -c exec wrapper; prevents shell init files from emitting terminal sequences (opt-in) | `src/__tests__/tmux.test.ts:322-353` |
+| T16 | 52bd601 | Optional explicit DEC mode-reset injection before C-c; belt-and-braces cleanup (opt-in) | `src/__tests__/tmux-close.test.ts:199-232` |
+| T18 | 4d29eff | Shell-escape sessionId and serverUrl; prevents command injection in spawn args | `src/__tests__/tmux.test.ts:285-320` |
+| T21 | 9283382 | Concurrent close corruption guard + self-exit edge case handling | `src/__tests__/tmux.integration.test.ts` |
+| T22 | fbbc246 | Byte-identical default-config behavior guard | `src/__tests__/backcompat.test.ts` |
+
+## Known Limitations
+
+- Origin of `?1049h`/`?2004h` leaks from tmux's own client-attach/redraw path remains unresolved.
+- `OPENCODE_DISABLE_MOUSE=1` live-OpenCode validation is pending (only stub harness tested).
+- T11 (`select-pane -T` guard) was deferred as Diag-2 showed no immediate impact.
+- Mode-reset relies on OpenCode's own signal handlers if the plugin does not initiate the kill.
+- Integration tests use stub scripts rather than live `opencode attach` sessions.
+
+## Future Work
+
+- **T11 Re-evaluation**: Remove or guard `select-pane -T` if live testing confirms it is redundant.
+- **Ghostty Detection**: Explore alternate signals like `GHOSTTY_RESOURCES_DIR` for terminal-specific hardening.
+- **Live Integration**: Run integration harnesses against real `opencode attach` sessions with `INTEGRATION_TMUX=1`.
+- **Parent-Mode Preservation**: Investigate DECRQM-based state restoration for the parent pane.
+- **Spawn Prepend**: Implement `OPENCODE_DISABLE_MOUSE=1` prepend in the production spawn command.
+
 
 ## Strategic Recommendation
 
