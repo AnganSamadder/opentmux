@@ -196,6 +196,67 @@ test('clean exit skips SIGKILL', async () => {
   expect(safeKillSpy).not.toHaveBeenCalledWith(9999, 'SIGKILL');
 });
 
+test('mode-reset hex emitted before C-c when flag=true', async () => {
+  const mockSpawn = createMockSpawnFn();
+  mockSpawn.results.push(
+    { exitCode: 0, stdout: '/usr/bin/tmux\n', stderr: '' },
+    { exitCode: 0, stdout: 'tmux 3.3\n', stderr: '' },
+    { exitCode: 0, stdout: '12345\n', stderr: '' },
+    { exitCode: 0, stdout: '', stderr: '' },
+    { exitCode: 0, stdout: '', stderr: '' },
+    { exitCode: 0, stdout: '', stderr: '' },
+    { exitCode: 0, stdout: 'pane-1\npane-2', stderr: '' },
+    { exitCode: 0, stdout: '', stderr: '' },
+    { exitCode: 0, stdout: '', stderr: '' },
+  );
+  setSpawnAsyncFn(mockSpawn.fn);
+  setStoredTmuxConfigForTests(createTestConfig({
+    tui_graceful_shutdown: true,
+    tui_explicit_mode_reset: true,
+  }));
+  spyOn(processUtils, 'getProcessChildren').mockReturnValue([9999]);
+  spyOn(processUtils, 'waitForProcessExit').mockResolvedValue(true);
+
+  const res = await closeTmuxPane('%1');
+  expect(res).toBe(true);
+
+  const calls = mockSpawn.calls.map(c => c.command);
+  const hexIdx = calls.findIndex(c => c.includes('-H'));
+  const ccIdx = calls.findIndex(c => c.includes('C-c'));
+  expect(hexIdx).toBeGreaterThanOrEqual(0);
+  expect(ccIdx).toBeGreaterThanOrEqual(0);
+  expect(hexIdx).toBeLessThan(ccIdx);
+  expect(calls[hexIdx]).toContain('-H');
+  const hexPayload = calls[hexIdx][calls[hexIdx].indexOf('-H') + 1];
+  expect(hexPayload).toMatch(/^([0-9a-f]{2} )+[0-9a-f]{2}$/);
+});
+
+test('mode-reset hex NOT emitted when flag=false', async () => {
+  const mockSpawn = createMockSpawnFn();
+  mockSpawn.results.push(
+    { exitCode: 0, stdout: '/usr/bin/tmux\n', stderr: '' },
+    { exitCode: 0, stdout: 'tmux 3.3\n', stderr: '' },
+    { exitCode: 0, stdout: '12345\n', stderr: '' },
+    { exitCode: 0, stdout: '', stderr: '' },
+    { exitCode: 0, stdout: '', stderr: '' },
+    { exitCode: 0, stdout: 'pane-1\npane-2', stderr: '' },
+    { exitCode: 0, stdout: '', stderr: '' },
+    { exitCode: 0, stdout: '', stderr: '' },
+  );
+  setSpawnAsyncFn(mockSpawn.fn);
+  setStoredTmuxConfigForTests(createTestConfig({
+    tui_graceful_shutdown: true,
+    tui_explicit_mode_reset: false,
+  }));
+  spyOn(processUtils, 'getProcessChildren').mockReturnValue([9999]);
+  spyOn(processUtils, 'waitForProcessExit').mockResolvedValue(true);
+
+  const res = await closeTmuxPane('%1');
+  expect(res).toBe(true);
+  const hexCalls = countCallsMatching(mockSpawn.calls, (cmd) => cmd.includes('-H'));
+  expect(hexCalls).toBe(0);
+});
+
 test('backward compat with flag=false', async () => {
   queueCommonCloseResults(mockSpawnData);
   setStoredTmuxConfigForTests(createTestConfig({ tui_graceful_shutdown: false }));

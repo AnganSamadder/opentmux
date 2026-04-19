@@ -6,12 +6,13 @@ import {
   groupAgentsByColumn,
   mainPanePercentForColumns,
 } from '../layout';
+import { MODE_RESET_ALL } from './escape-codes';
 import { log } from './logger';
-import { 
-  getProcessChildren, 
-  getProcessCommand, 
-  safeKill, 
-  waitForProcessExit 
+import {
+  getProcessChildren,
+  getProcessCommand,
+  safeKill,
+  waitForProcessExit,
 } from './process';
 
 const BASE_BACKOFF_MS = 250;
@@ -371,6 +372,13 @@ async function sendInterruptViaTmux(
   await spawnFn([tmuxPath, 'send-keys', '-t', paneId, 'C-c', '']);
 }
 
+function toTmuxHex(str: string): string {
+  return Buffer.from(str, 'binary')
+    .toString('hex')
+    .match(/.{2}/g)!
+    .join(' ');
+}
+
 async function attemptSpawnPane(
   sessionId: string,
   description: string,
@@ -529,6 +537,17 @@ export async function closeTmuxPane(paneId: string): Promise<boolean> {
                 childPid,
                 gracePeriodMs: config.reaper_grace_period_ms,
               });
+
+              if (config.tui_explicit_mode_reset) {
+                await spawnAsyncFn([
+                  tmux,
+                  'send-keys',
+                  '-t',
+                  paneId,
+                  '-H',
+                  toTmuxHex(MODE_RESET_ALL),
+                ]);
+              }
 
               await sendInterruptViaTmux(spawnAsyncFn, tmux, paneId);
               const exitedAfterInterrupt = await waitForProcessExit(
