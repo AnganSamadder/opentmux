@@ -592,6 +592,13 @@ export async function closeTmuxPane(paneId: string): Promise<boolean> {
           // If there is 1 or 0 panes left, avoid forcing a layout redraw
           if (remainingPanes.length > 1) {
             await applyTmuxLayout();
+            if (config.tui_silent_refresh_after_close) {
+              try {
+                await spawnAsyncFn([tmux, 'refresh-client', '-S']);
+              } catch (refreshErr) {
+                log('[tmux] closeTmuxPane: refresh-client -S failed', { error: String(refreshErr) });
+              }
+            }
           } else {
             // Skip layout reapply when only a single pane remains
             log('[tmux] closeTmuxPane: skipping layout reapply (≤1 pane remains)');
@@ -599,10 +606,24 @@ export async function closeTmuxPane(paneId: string): Promise<boolean> {
         } catch {
           // In case of any failure counting panes, fall back to default behavior
           await applyTmuxLayout();
+          if (config.tui_silent_refresh_after_close) {
+            try {
+              await spawnAsyncFn([tmux, 'refresh-client', '-S']);
+            } catch (refreshErr) {
+              log('[tmux] closeTmuxPane: refresh-client -S failed', { error: String(refreshErr) });
+            }
+          }
         }
       } else {
         // Default behavior when the feature is disabled
         await applyTmuxLayout();
+        if (config.tui_silent_refresh_after_close) {
+          try {
+            await spawnAsyncFn([tmux, 'refresh-client', '-S']);
+          } catch (refreshErr) {
+            log('[tmux] closeTmuxPane: refresh-client -S failed', { error: String(refreshErr) });
+          }
+        }
       }
 
       return true;

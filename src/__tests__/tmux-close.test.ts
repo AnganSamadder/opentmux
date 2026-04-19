@@ -93,6 +93,57 @@ beforeEach(() => {
   spyOn(processUtils, 'getProcessCommand').mockReturnValue('opencode attach');
 });
 
+test('refresh-client -S emitted after select-layout', async () => {
+  const mockSpawn = createMockSpawnFn();
+  mockSpawn.results.push(
+    { exitCode: 0, stdout: '/usr/bin/tmux\n', stderr: '' },
+    { exitCode: 0, stdout: 'tmux 3.3\n', stderr: '' },
+    { exitCode: 0, stdout: '12345\n', stderr: '' },
+    { exitCode: 0, stdout: '', stderr: '' },
+    { exitCode: 0, stdout: 'pane-1\npane-2', stderr: '' },
+    { exitCode: 0, stdout: '', stderr: '' },
+    { exitCode: 0, stdout: '', stderr: '' },
+  );
+  setSpawnAsyncFn(mockSpawn.fn);
+  setStoredTmuxConfigForTests(createTestConfig({
+    tui_conditional_layout_reapply: true,
+    tui_silent_refresh_after_close: true,
+  }));
+
+  const res = await closeTmuxPane('%1');
+  expect(res).toBe(true);
+
+  const calls = mockSpawn.calls.map(c => c.command);
+  const selectIdx = calls.findIndex(c => c.join(' ').includes('select-layout'));
+  const refreshIdx = calls.findIndex(c => c.join(' ').includes('refresh-client'));
+  expect(selectIdx).toBeGreaterThanOrEqual(0);
+  expect(refreshIdx).toBeGreaterThanOrEqual(0);
+  expect(refreshIdx).toBeGreaterThan(selectIdx);
+  expect(calls[refreshIdx]).toEqual(['/usr/bin/tmux', 'refresh-client', '-S']);
+});
+
+test('refresh-client -S skipped when flag=false', async () => {
+  const mockSpawn = createMockSpawnFn();
+  mockSpawn.results.push(
+    { exitCode: 0, stdout: '/usr/bin/tmux\n', stderr: '' },
+    { exitCode: 0, stdout: 'tmux 3.3\n', stderr: '' },
+    { exitCode: 0, stdout: '12345\n', stderr: '' },
+    { exitCode: 0, stdout: '', stderr: '' },
+    { exitCode: 0, stdout: 'pane-1\npane-2', stderr: '' },
+    { exitCode: 0, stdout: '', stderr: '' },
+  );
+  setSpawnAsyncFn(mockSpawn.fn);
+  setStoredTmuxConfigForTests(createTestConfig({
+    tui_conditional_layout_reapply: true,
+    tui_silent_refresh_after_close: false,
+  }));
+
+  const res = await closeTmuxPane('%1');
+  expect(res).toBe(true);
+  const refreshCalls = mockSpawn.calls.filter((c) => c.command.join(' ').includes('refresh-client'));
+  expect(refreshCalls.length).toBe(0);
+});
+
 afterEach(() => {
   setStoredTmuxConfigForTests(null);
   resetSpawnAsyncFn();
@@ -205,6 +256,7 @@ test('layout applied when 3 panes remain', async () => {
     { exitCode: 0, stdout: '', stderr: '' },                 // kill-pane
     { exitCode: 0, stdout: 'pane-1\npane-2\npane-3', stderr: '' }, // list-panes after close → 3 panes remain
     { exitCode: 0, stdout: '', stderr: '' },                 // select-layout (applyTmuxLayout)
+    { exitCode: 0, stdout: '', stderr: '' },                 // refresh-client after select-layout
   );
   setSpawnAsyncFn(mockSpawn.fn);
   setStoredTmuxConfigForTests(createTestConfig({ tui_conditional_layout_reapply: true }));
@@ -225,6 +277,7 @@ test('layout always applied when flag=false', async () => {
     { exitCode: 0, stdout: '', stderr: '' }, // (fallback)
     { exitCode: 0, stdout: 'pane-1', stderr: '' }, // list-panes after close -> 1 pane remains
     { exitCode: 0, stdout: '', stderr: '' }, // applyTmuxLayout internal calls
+    { exitCode: 0, stdout: '', stderr: '' }, // refresh-client after applyTmuxLayout
   );
   setSpawnAsyncFn(mockSpawn.fn);
   setStoredTmuxConfigForTests(createTestConfig({ tui_conditional_layout_reapply: false }));
