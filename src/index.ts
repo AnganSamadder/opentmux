@@ -44,6 +44,14 @@ const OpencodeAgentTmux: Plugin = async (ctx) => {
     reaper_self_destruct_timeout_ms: config.reaper_self_destruct_timeout_ms,
     rotate_port: config.rotate_port,
     max_ports: config.max_ports,
+    
+    // Propagate new TUI isolation flags
+    tui_graceful_shutdown: config.tui_graceful_shutdown,
+    tui_conditional_layout_reapply: config.tui_conditional_layout_reapply,
+    tui_silent_refresh_after_close: config.tui_silent_refresh_after_close,
+    tui_sh_exec_wrapper: config.tui_sh_exec_wrapper,
+    tui_explicit_mode_reset: config.tui_explicit_mode_reset,
+    tui_ghostty_hardening: config.tui_ghostty_hardening,
   };
 
   const serverUrl = ctx.serverUrl?.toString() || detectServerUrl();

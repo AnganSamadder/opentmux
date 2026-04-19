@@ -14,10 +14,18 @@ export const TmuxConfigSchema = z.object({
   enabled: z.boolean().default(true),
   layout: TmuxLayoutSchema.default('main-vertical'),
   main_pane_size: z.number().min(20).max(80).default(60),
-  spawn_delay_ms: z.number().min(50).max(2000).default(300),
+ spawn_delay_ms: z.number().min(50).max(2000).default(300),
   max_retry_attempts: z.number().min(0).max(5).default(2),
   layout_debounce_ms: z.number().min(50).max(1000).default(150),
   max_agents_per_column: z.number().min(1).max(10).default(3),
+  
+  // TUI isolation flags (backward-compatible defaults)
+  tui_graceful_shutdown: z.boolean().default(true),
+  tui_conditional_layout_reapply: z.boolean().default(true),
+  tui_silent_refresh_after_close: z.boolean().default(true),
+  tui_sh_exec_wrapper: z.boolean().default(false),
+  tui_explicit_mode_reset: z.boolean().default(false),
+  tui_ghostty_hardening: z.boolean().default(false),
   
   // Reaper config
   reaper_enabled: z.boolean().default(true),
@@ -46,6 +54,14 @@ export const PluginConfigSchema = z.object({
   max_retry_attempts: z.number().min(0).max(5).default(2),
   layout_debounce_ms: z.number().min(50).max(1000).default(150),
   max_agents_per_column: z.number().min(1).max(10).default(3),
+  
+  // TUI isolation flags (backward-compatible defaults)
+  tui_graceful_shutdown: z.boolean().default(true),
+  tui_conditional_layout_reapply: z.boolean().default(true),
+  tui_silent_refresh_after_close: z.boolean().default(true),
+  tui_sh_exec_wrapper: z.boolean().default(false),
+  tui_explicit_mode_reset: z.boolean().default(false),
+  tui_ghostty_hardening: z.boolean().default(false),
   
   // Reaper config
   reaper_enabled: z.boolean().default(true),

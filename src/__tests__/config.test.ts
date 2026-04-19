@@ -1,5 +1,5 @@
 import { test, expect } from "bun:test";
-import { TmuxConfigSchema } from "../config";
+import { TmuxConfigSchema, PluginConfigSchema } from "../config";
 
 test("TmuxConfigSchema has new config fields", () => {
   const config = TmuxConfigSchema.parse({});
@@ -7,6 +7,36 @@ test("TmuxConfigSchema has new config fields", () => {
   expect(config.max_retry_attempts).toBe(2);
   expect(config.layout_debounce_ms).toBe(150);
   expect(config.max_agents_per_column).toBe(3);
+  // New TUI isolation flags defaults
+  expect(config.tui_graceful_shutdown).toBe(true);
+  expect(config.tui_conditional_layout_reapply).toBe(true);
+  expect(config.tui_silent_refresh_after_close).toBe(true);
+  expect(config.tui_sh_exec_wrapper).toBe(false);
+  expect(config.tui_explicit_mode_reset).toBe(false);
+  expect(config.tui_ghostty_hardening).toBe(false);
+});
+
+test("PluginConfigSchema has new config fields (defaults)", () => {
+  const cfg = PluginConfigSchema.parse({});
+  expect(cfg.tui_graceful_shutdown).toBe(true);
+  expect(cfg.tui_conditional_layout_reapply).toBe(true);
+  expect(cfg.tui_silent_refresh_after_close).toBe(true);
+  expect(cfg.tui_sh_exec_wrapper).toBe(false);
+  expect(cfg.tui_explicit_mode_reset).toBe(false);
+  expect(cfg.tui_ghostty_hardening).toBe(false);
+});
+
+test("PluginConfigSchema backward compatibility: legacy JSON missing new fields defaults applied", () => {
+  const legacyJson = { enabled: true, port: 4096 } as any;
+  const cfg = PluginConfigSchema.parse(legacyJson);
+  expect(cfg.enabled).toBe(true);
+  expect(cfg.port).toBe(4096);
+  expect(cfg.tui_graceful_shutdown).toBe(true);
+  expect(cfg.tui_conditional_layout_reapply).toBe(true);
+  expect(cfg.tui_silent_refresh_after_close).toBe(true);
+  expect(cfg.tui_sh_exec_wrapper).toBe(false);
+  expect(cfg.tui_explicit_mode_reset).toBe(false);
+  expect(cfg.tui_ghostty_hardening).toBe(false);
 });
 
 test("TmuxConfigSchema accepts custom values", () => {
@@ -20,6 +50,13 @@ test("TmuxConfigSchema accepts custom values", () => {
   expect(config.max_retry_attempts).toBe(3);
   expect(config.layout_debounce_ms).toBe(200);
   expect(config.max_agents_per_column).toBe(4);
+  // Ensure new flags can be read when provided
+  expect(config.tui_graceful_shutdown).toBe(true);
+  expect(config.tui_conditional_layout_reapply).toBe(true);
+  expect(config.tui_silent_refresh_after_close).toBe(true);
+  expect(config.tui_sh_exec_wrapper).toBe(false);
+  expect(config.tui_explicit_mode_reset).toBe(false);
+  expect(config.tui_ghostty_hardening).toBe(false);
 });
 
 test("TmuxConfigSchema validates min/max constraints", () => {
