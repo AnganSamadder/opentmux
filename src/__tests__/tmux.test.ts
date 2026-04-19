@@ -318,3 +318,53 @@ test('shell-escapes sessionId in spawn command (injection test)', async () => {
   expect(cmd).toContain(`--session ${escapedSession}`);
   globalThis.fetch = originalFetch;
 });
+
+test('sh-exec wrapper applied when flag=true', async () => {
+  // Prepare mock responses to allow full spawn flow
+  mockData.results.push(
+    { exitCode: 0, stdout: '/usr/bin/tmux\n', stderr: '' },
+    { exitCode: 0, stdout: 'tmux 3.3\n', stderr: '' },
+    { exitCode: 0, stdout: '%5\n', stderr: '' },
+    { exitCode: 0, stdout: '', stderr: '' },
+    { exitCode: 0, stdout: '', stderr: '' },
+    { exitCode: 0, stdout: '', stderr: '' },
+    { exitCode: 0, stdout: '', stderr: '' },
+  );
+
+  setSpawnAsyncFn(mockData.fn);
+
+  const config = createTestConfig({ tui_sh_exec_wrapper: true });
+  const result = await spawnTmuxPane('test-session', 'Wrapper Test', config, 'http://localhost:4096');
+
+  expect(result.success).toBe(true);
+  const splitWindowCall = findCallContaining(mockData.calls, 'split-window');
+  expect(splitWindowCall).toBeDefined();
+  const cmd = splitWindowCall!.command[splitWindowCall!.command.length - 1] as string;
+  expect(cmd).toMatch(/^sh -c '/);
+  expect(cmd).toContain('exec opencode attach');
+});
+
+test('sh-exec wrapper not applied when flag=false', async () => {
+  // Prepare mock responses to allow full spawn flow
+  mockData.results.push(
+    { exitCode: 0, stdout: '/usr/bin/tmux\n', stderr: '' },
+    { exitCode: 0, stdout: 'tmux 3.3\n', stderr: '' },
+    { exitCode: 0, stdout: '%5\n', stderr: '' },
+    { exitCode: 0, stdout: '', stderr: '' },
+    { exitCode: 0, stdout: '', stderr: '' },
+    { exitCode: 0, stdout: '', stderr: '' },
+    { exitCode: 0, stdout: '', stderr: '' },
+  );
+
+  setSpawnAsyncFn(mockData.fn);
+
+  const config = createTestConfig({ tui_sh_exec_wrapper: false });
+  const result = await spawnTmuxPane('test-session-2', 'Wrapper Test 2', config, 'http://localhost:4096');
+
+  expect(result.success).toBe(true);
+  const splitWindowCall = findCallContaining(mockData.calls, 'split-window');
+  expect(splitWindowCall).toBeDefined();
+  const cmd = splitWindowCall!.command[splitWindowCall!.command.length - 1] as string;
+  expect(cmd).toMatch(/^opencode attach/);
+  expect(cmd).not.toContain("sh -c");
+});

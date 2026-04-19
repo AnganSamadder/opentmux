@@ -388,6 +388,11 @@ async function attemptSpawnPane(
   serverUrl: string,
 ): Promise<SpawnPaneResult> {
   const opencodeCmd = `opencode attach ${shellEscape(serverUrl)} --session ${shellEscape(sessionId)}`;
+  // Optional non-interactive wrapper to ensure shell-rc side effects are skipped
+  // when the user opts-in via config.tui_sh_exec_wrapper.
+  const finalCmd = config.tui_sh_exec_wrapper
+    ? `sh -c ${shellEscape('exec ' + opencodeCmd)}`
+    : opencodeCmd;
 
   const args = [
     'split-window',
@@ -396,7 +401,7 @@ async function attemptSpawnPane(
     '-P',
     '-F',
     '#{pane_id}',
-    opencodeCmd,
+    finalCmd,
   ];
 
   log('[tmux] attemptSpawnPane: executing', { tmux, args, opencodeCmd });
