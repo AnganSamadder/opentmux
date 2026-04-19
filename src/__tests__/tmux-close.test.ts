@@ -1,13 +1,18 @@
 import { test, expect, beforeEach, afterEach, mock, spyOn } from 'bun:test';
+import type { TmuxConfig } from '../config';
 import {
   closeTmuxPane,
-  setSpawnAsyncFn,
   resetSpawnAsyncFn,
   resetTmuxPathCache,
+  setSpawnAsyncFn,
+  setStoredTmuxConfigForTests,
 } from '../utils/tmux';
 import * as processUtils from '../utils/process';
+import {
+  countCallsMatching,
+  findCallContaining,
+} from './helpers/command-assertions';
 
-// Mock spawnAsync
 interface SpawnResult {
   exitCode: number;
   stdout: string;
@@ -27,8 +32,7 @@ function createMockSpawnFn() {
     calls.push({ command, options });
     const result = results.shift();
     if (!result) {
-      // Default success
-      return { exitCode: 0, stdout: '', stderr: '' };
+      throw new Error(`No more mock results configured for: ${command.join(' ')}`);
     }
     return result;
   };
@@ -36,15 +40,52 @@ function createMockSpawnFn() {
   return { fn, calls, results };
 }
 
+function createTestConfig(overrides: Partial<TmuxConfig> = {}): TmuxConfig {
+  return {
+    enabled: true,
+    layout: 'main-vertical',
+    main_pane_size: 60,
+    spawn_delay_ms: 300,
+    max_retry_attempts: 2,
+    layout_debounce_ms: 150,
+    max_agents_per_column: 3,
+    tui_graceful_shutdown: true,
+    tui_conditional_layout_reapply: true,
+    tui_silent_refresh_after_close: true,
+    tui_sh_exec_wrapper: false,
+    tui_explicit_mode_reset: false,
+    tui_ghostty_hardening: false,
+    reaper_enabled: true,
+    reaper_interval_ms: 30000,
+    reaper_min_zombie_checks: 3,
+    reaper_grace_period_ms: 5000,
+    reaper_auto_self_destruct: true,
+    reaper_self_destruct_timeout_ms: 600000,
+    rotate_port: false,
+    max_ports: 10,
+    ...overrides,
+  };
+}
+
+function queueCommonCloseResults(mockSpawnData: ReturnType<typeof createMockSpawnFn>): void {
+  mockSpawnData.results.push(
+    { exitCode: 0, stdout: '/usr/bin/tmux\n', stderr: '' },
+    { exitCode: 0, stdout: 'tmux 3.3\n', stderr: '' },
+    { exitCode: 0, stdout: '12345\n', stderr: '' },
+    { exitCode: 0, stdout: '', stderr: '' },
+    { exitCode: 0, stdout: '', stderr: '' },
+  );
+}
+
 let mockSpawnData: ReturnType<typeof createMockSpawnFn>;
 
 beforeEach(() => {
   resetTmuxPathCache();
   resetSpawnAsyncFn();
+  setStoredTmuxConfigForTests(null);
   mockSpawnData = createMockSpawnFn();
   setSpawnAsyncFn(mockSpawnData.fn);
-  
-  // Mock process utils
+
   spyOn(processUtils, 'getProcessChildren').mockReturnValue([]);
   spyOn(processUtils, 'safeKill').mockReturnValue(true);
   spyOn(processUtils, 'waitForProcessExit').mockResolvedValue(true);
@@ -52,70 +93,73 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  setStoredTmuxConfigForTests(null);
   resetSpawnAsyncFn();
   mock.restore();
 });
 
-test('closeTmuxPane kills attach process before closing pane', async () => {
-  // Setup mocks
-  mockSpawnData.results.push(
-    { exitCode: 0, stdout: '/usr/bin/tmux\n', stderr: '' }, // find tmux
-    { exitCode: 0, stdout: 'tmux 3.3\n', stderr: '' }, // verify tmux
-    { exitCode: 0, stdout: '12345\n', stderr: '' }, // list-panes (get PID)
-    { exitCode: 0, stdout: '', stderr: '' }, // kill-pane
-    { exitCode: 0, stdout: '', stderr: '' }, // layout
-  );
+test('send-keys C-c before SIGTERM', async () => {
+  queueCommonCloseResults(mockSpawnData);
+  setStoredTmuxConfigForTests(createTestConfig({ tui_graceful_shutdown: true }));
 
   spyOn(processUtils, 'getProcessChildren').mockReturnValue([9999]);
   const safeKillSpy = spyOn(processUtils, 'safeKill');
-  const waitSpy = spyOn(processUtils, 'waitForProcessExit');
+  const waitSpy = spyOn(processUtils, 'waitForProcessExit')
+    .mockResolvedValueOnce(false)
+    .mockResolvedValueOnce(true);
 
   const result = await closeTmuxPane('%1');
 
   expect(result).toBe(true);
-  
-  // Verify PID flow
-  expect(processUtils.getProcessChildren).toHaveBeenCalledWith(12345); // Shell PID
+  const sendKeysCall = findCallContaining(mockSpawnData.calls, 'send-keys');
+  expect(sendKeysCall).toBeDefined();
+  expect(sendKeysCall?.command).toEqual([
+    '/usr/bin/tmux',
+    'send-keys',
+    '-t',
+    '%1',
+    'C-c',
+    '',
+  ]);
+  expect(waitSpy).toHaveBeenNthCalledWith(1, 9999, 5000);
+  expect(waitSpy).toHaveBeenNthCalledWith(2, 9999, 1000);
   expect(safeKillSpy).toHaveBeenCalledWith(9999, 'SIGTERM');
-  expect(waitSpy).toHaveBeenCalledWith(9999, 2000);
-  
-  // Verify tmux flow
-  const killPaneCall = mockSpawnData.calls.find(c => c.command.includes('kill-pane'));
-  expect(killPaneCall).toBeDefined();
+  expect(safeKillSpy).not.toHaveBeenCalledWith(9999, 'SIGKILL');
 });
 
-test('closeTmuxPane sends SIGKILL if SIGTERM fails', async () => {
-  mockSpawnData.results.push(
-    { exitCode: 0, stdout: '/usr/bin/tmux\n', stderr: '' },
-    { exitCode: 0, stdout: 'tmux 3.3\n', stderr: '' },
-    { exitCode: 0, stdout: '12345\n', stderr: '' }, // list-panes
-    { exitCode: 0, stdout: '', stderr: '' }, // kill-pane
-    { exitCode: 0, stdout: '', stderr: '' }, // layout
-  );
+test('clean exit skips SIGKILL', async () => {
+  queueCommonCloseResults(mockSpawnData);
+  setStoredTmuxConfigForTests(createTestConfig({ tui_graceful_shutdown: true }));
 
   spyOn(processUtils, 'getProcessChildren').mockReturnValue([9999]);
-  spyOn(processUtils, 'waitForProcessExit').mockResolvedValue(false); // Timed out
   const safeKillSpy = spyOn(processUtils, 'safeKill');
+  spyOn(processUtils, 'waitForProcessExit').mockResolvedValue(true);
 
-  await closeTmuxPane('%1');
+  const result = await closeTmuxPane('%1');
 
-  expect(safeKillSpy).toHaveBeenCalledWith(9999, 'SIGTERM');
-  expect(safeKillSpy).toHaveBeenCalledWith(9999, 'SIGKILL');
+  expect(result).toBe(true);
+  expect(findCallContaining(mockSpawnData.calls, 'send-keys')).toBeDefined();
+  expect(countCallsMatching(mockSpawnData.calls, (cmd) => cmd.includes('kill-pane'))).toBe(1);
+  expect(safeKillSpy).not.toHaveBeenCalledWith(9999, 'SIGTERM');
+  expect(safeKillSpy).not.toHaveBeenCalledWith(9999, 'SIGKILL');
 });
 
-test('closeTmuxPane handles case where no attach process found', async () => {
-  mockSpawnData.results.push(
-    { exitCode: 0, stdout: '/usr/bin/tmux\n', stderr: '' },
-    { exitCode: 0, stdout: 'tmux 3.3\n', stderr: '' },
-    { exitCode: 0, stdout: '12345\n', stderr: '' }, // list-panes
-    { exitCode: 0, stdout: '', stderr: '' }, // kill-pane
-    { exitCode: 0, stdout: '', stderr: '' }, // layout
-  );
+test('backward compat with flag=false', async () => {
+  queueCommonCloseResults(mockSpawnData);
+  setStoredTmuxConfigForTests(createTestConfig({ tui_graceful_shutdown: false }));
 
-  spyOn(processUtils, 'getProcessChildren').mockReturnValue([]); // No children
+  spyOn(processUtils, 'getProcessChildren').mockReturnValue([9999]);
   const safeKillSpy = spyOn(processUtils, 'safeKill');
+  const waitSpy = spyOn(processUtils, 'waitForProcessExit').mockResolvedValue(false);
 
-  await closeTmuxPane('%1');
+  const result = await closeTmuxPane('%1');
 
-  expect(safeKillSpy).not.toHaveBeenCalled();
+  expect(result).toBe(true);
+  expect(findCallContaining(mockSpawnData.calls, 'send-keys')).toBeUndefined();
+  expect(waitSpy).toHaveBeenCalledTimes(1);
+  expect(waitSpy).toHaveBeenCalledWith(9999, 2000);
+  expect(safeKillSpy.mock.calls).toEqual([
+    [9999, 'SIGTERM'],
+    [9999, 'SIGKILL'],
+  ]);
 });

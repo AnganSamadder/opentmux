@@ -1,3 +1,5 @@
+import { test, expect } from 'bun:test';
+
 import {
   assertCommandSequence,
   findCallContaining,

@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process';
 import type { TmuxConfig, TmuxLayout } from '../config';
+import { TmuxConfigSchema } from '../config';
 import {
   buildMainVerticalMultiColumnLayoutString,
   groupAgentsByColumn,
@@ -358,6 +359,18 @@ export function resetSpawnAsyncFn(): void {
   spawnAsyncFn = spawnAsync;
 }
 
+export function setStoredTmuxConfigForTests(config: TmuxConfig | null): void {
+  storedConfig = config;
+}
+
+async function sendInterruptViaTmux(
+  spawnFn: typeof spawnAsyncFn,
+  tmuxPath: string,
+  paneId: string,
+): Promise<void> {
+  await spawnFn([tmuxPath, 'send-keys', '-t', paneId, 'C-c', '']);
+}
+
 async function attemptSpawnPane(
   sessionId: string,
   description: string,
@@ -494,6 +507,8 @@ export async function closeTmuxPane(paneId: string): Promise<boolean> {
     return false;
   }
 
+  const config = storedConfig ?? TmuxConfigSchema.parse({});
+
   // PID-level termination
   try {
     const pidResult = await spawnAsyncFn([tmux, 'list-panes', '-t', paneId, '-F', '#{pane_pid}']);
@@ -507,13 +522,42 @@ export async function closeTmuxPane(paneId: string): Promise<boolean> {
           const command = getProcessCommand(childPid);
           if (command && command.includes('opencode')) {
             log('[tmux] closeTmuxPane: killing child attach process', { childPid, command });
-            
-            safeKill(childPid, 'SIGTERM');
-            const exited = await waitForProcessExit(childPid, 2000);
-            
-            if (!exited) {
-              log('[tmux] closeTmuxPane: process did not exit, sending SIGKILL', { childPid });
-              safeKill(childPid, 'SIGKILL');
+
+            if (config.tui_graceful_shutdown) {
+              log('[tmux] closeTmuxPane: sending C-c to pane before SIGTERM', {
+                paneId,
+                childPid,
+                gracePeriodMs: config.reaper_grace_period_ms,
+              });
+
+              await sendInterruptViaTmux(spawnAsyncFn, tmux, paneId);
+              const exitedAfterInterrupt = await waitForProcessExit(
+                childPid,
+                config.reaper_grace_period_ms,
+              );
+
+              if (!exitedAfterInterrupt) {
+                log('[tmux] closeTmuxPane: process did not exit after C-c, sending SIGTERM', {
+                  childPid,
+                });
+                safeKill(childPid, 'SIGTERM');
+
+                const exitedAfterSigterm = await waitForProcessExit(childPid, 1000);
+                if (!exitedAfterSigterm) {
+                  log('[tmux] closeTmuxPane: process did not exit after SIGTERM, sending SIGKILL', {
+                    childPid,
+                  });
+                  safeKill(childPid, 'SIGKILL');
+                }
+              }
+            } else {
+              safeKill(childPid, 'SIGTERM');
+              const exited = await waitForProcessExit(childPid, 2000);
+
+              if (!exited) {
+                log('[tmux] closeTmuxPane: process did not exit, sending SIGKILL', { childPid });
+                safeKill(childPid, 'SIGKILL');
+              }
             }
           }
         }
