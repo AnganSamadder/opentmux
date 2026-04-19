@@ -7,6 +7,7 @@ import {
   resetTmuxPathCache,
   type SpawnPaneResult,
 } from '../utils/tmux';
+import { shellEscape } from '../utils/shell-escape';
 import type { TmuxConfig } from '../config';
 import { findCallContaining } from './helpers/command-assertions';
 
@@ -279,4 +280,33 @@ test('spawnTmuxPane returns early when not inside tmux', async () => {
 
   expect(result.success).toBe(false);
   expect(mockData.calls.length).toBe(0);
+});
+
+test('shell-escapes sessionId in spawn command (injection test)', async () => {
+  // Configure mock results to allow a full spawn flow
+  mockData.results.push(
+    { exitCode: 0, stdout: '/usr/bin/tmux\n', stderr: '' },
+    { exitCode: 0, stdout: 'tmux 3.3\n', stderr: '' },
+    { exitCode: 0, stdout: '%5\n', stderr: '' },
+    { exitCode: 0, stdout: '', stderr: '' },
+    { exitCode: 0, stdout: '', stderr: '' },
+    { exitCode: 0, stdout: '', stderr: '' },
+    { exitCode: 0, stdout: '', stderr: '' },
+  );
+
+  setSpawnAsyncFn(mockData.fn);
+
+  const dangerousSessionId = "a';echo pwn";
+  const serverUrl = 'http://localhost:4096';
+  const config = createTestConfig();
+
+  const result = await spawnTmuxPane(dangerousSessionId, 'Injection Test', config, serverUrl);
+
+  expect(result.success).toBe(true);
+  const splitWindowCall = findCallContaining(mockData.calls, 'split-window');
+  expect(splitWindowCall).toBeDefined();
+  const cmd = splitWindowCall!.command[splitWindowCall!.command.length - 1] as string;
+  expect(cmd).toContain("opencode attach");
+  expect(cmd).toContain("'http://localhost:4096'");
+  expect(cmd).toContain("'a'\\'';echo pwn'");
 });

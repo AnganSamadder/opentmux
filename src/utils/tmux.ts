@@ -8,6 +8,7 @@ import {
 } from '../layout';
 import { MODE_RESET_ALL } from './escape-codes';
 import { log } from './logger';
+import { shellEscape } from './shell-escape';
 import {
   getProcessChildren,
   getProcessCommand,
@@ -386,7 +387,7 @@ async function attemptSpawnPane(
   tmux: string,
   serverUrl: string,
 ): Promise<SpawnPaneResult> {
-  const opencodeCmd = `opencode attach ${serverUrl} --session ${sessionId}`;
+  const opencodeCmd = `opencode attach ${shellEscape(serverUrl)} --session ${shellEscape(sessionId)}`;
 
   const args = [
     'split-window',
