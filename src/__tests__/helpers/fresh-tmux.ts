@@ -1,4 +1,3 @@
-import { test } from 'bun:test';
 import * as childProcess from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import * as os from 'node:os';
@@ -11,31 +10,33 @@ export interface TmuxExecResult {
 
 async function resolveTmuxBinary(): Promise<string> {
   const lookupCommand = os.platform() === 'win32' ? 'where' : 'which';
-  const lookupResult = await execFileAsync(lookupCommand, ['tmux']);
 
-  if (lookupResult.exitCode !== 0) {
-    test.skip('tmux not found');
+  try {
+    const lookupResult = await execFileAsync(lookupCommand, ['tmux']);
+
+    if (lookupResult.exitCode !== 0) {
+      throw new Error('tmux not found');
+    }
+
+    const tmuxPath = lookupResult.stdout
+      .split('\n')
+      .map((entry) => entry.trim())
+      .find((entry) => entry.length > 0);
+
+    if (!tmuxPath) {
+      throw new Error('tmux not found');
+    }
+
+    const verifyResult = await execFileAsync(tmuxPath, ['-V']);
+
+    if (verifyResult.exitCode !== 0) {
+      throw new Error('tmux not found');
+    }
+
+    return tmuxPath;
+  } catch {
     throw new Error('tmux not found');
   }
-
-  const tmuxPath = lookupResult.stdout
-    .split('\n')
-    .map((entry) => entry.trim())
-    .find((entry) => entry.length > 0);
-
-  if (!tmuxPath) {
-    test.skip('tmux not found');
-    throw new Error('tmux not found');
-  }
-
-  const verifyResult = await execFileAsync(tmuxPath, ['-V']);
-
-  if (verifyResult.exitCode !== 0) {
-    test.skip('tmux not found');
-    throw new Error('tmux not found');
-  }
-
-  return tmuxPath;
 }
 
 function execFileAsync(file: string, args: string[]): Promise<TmuxExecResult> {
@@ -76,19 +77,37 @@ export async function startFreshTmuxServer(): Promise<{
   cleanup: () => Promise<void>;
 }> {
   const socket = `opentmux-test-${randomUUID().slice(0, 8)}`;
-  let cleanupStarted = false;
+  let cleanupCompleted = false;
+  let cleanupPromise: Promise<void> | null = null;
+
+  const isNoServerRunningMessage = (stderr: string): boolean => {
+    return stderr.toLowerCase().includes('no server running');
+  };
 
   const cleanup = async (): Promise<void> => {
-    if (cleanupStarted) {
+    if (cleanupCompleted) {
       return;
     }
 
-    cleanupStarted = true;
+    if (!cleanupPromise) {
+      cleanupPromise = (async () => {
+        const killServerResult = await tmuxExec(socket, ['kill-server']);
+
+        if (killServerResult.exitCode === 0 || isNoServerRunningMessage(killServerResult.stderr)) {
+          cleanupCompleted = true;
+          return;
+        }
+
+        throw new Error(killServerResult.stderr.trim() || 'failed to clean up fresh tmux server');
+      })();
+    }
 
     try {
-      await tmuxExec(socket, ['kill-server']);
+      await cleanupPromise;
     } finally {
-      cleanupStarted = true;
+      if (!cleanupCompleted) {
+        cleanupPromise = null;
+      }
     }
   };
 

@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, test } from 'bun:test';
+import * as childProcess from 'node:child_process';
 import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -12,6 +13,36 @@ import {
 import { startFreshTmuxServer, tmuxExec } from './fresh-tmux';
 
 const PIPE_PANE_SETTLE_MS = 100;
+
+function isTmuxAvailable(): boolean {
+  const lookupCommand = process.platform === 'win32' ? 'where' : 'which';
+  const lookupResult = childProcess.spawnSync(lookupCommand, ['tmux'], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    encoding: 'utf8',
+  });
+
+  if (lookupResult.status !== 0) {
+    return false;
+  }
+
+  const tmuxPath = lookupResult.stdout
+    .split('\n')
+    .map((entry) => entry.trim())
+    .find((entry) => entry.length > 0);
+
+  if (!tmuxPath) {
+    return false;
+  }
+
+  const verifyResult = childProcess.spawnSync(tmuxPath, ['-V'], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    encoding: 'utf8',
+  });
+
+  return verifyResult.status === 0;
+}
+
+const tmuxAvailable = isTmuxAvailable();
 
 function sleep(delayMs: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, delayMs));
@@ -34,6 +65,16 @@ async function createCaptureArtifactPath(): Promise<string> {
 }
 
 describe('fresh tmux integration helpers', () => {
+  if (!process.env.INTEGRATION_TMUX) {
+    test.skip('requires INTEGRATION_TMUX=1', () => {});
+    return;
+  }
+
+  if (!tmuxAvailable) {
+    test.skip('tmux not found', () => {});
+    return;
+  }
+
   let cleanupFreshServer: (() => Promise<void>) | null = null;
   let freshServerSocket = '';
 
@@ -49,41 +90,22 @@ describe('fresh tmux integration helpers', () => {
   });
 
   it('starts an isolated tmux server and lists a single pane', async () => {
-    if (!process.env.INTEGRATION_TMUX) {
-      test.skip('requires INTEGRATION_TMUX=1');
-      return;
-    }
+    const freshServer = await startFreshTmuxServer();
+    cleanupFreshServer = freshServer.cleanup;
+    freshServerSocket = freshServer.socket;
 
-    try {
-      const freshServer = await startFreshTmuxServer();
-      cleanupFreshServer = freshServer.cleanup;
-      freshServerSocket = freshServer.socket;
+    const listPanesResult = await tmuxExec(freshServer.socket, ['list-panes', '-F', '#{pane_id}']);
 
-      const listPanesResult = await tmuxExec(freshServer.socket, ['list-panes', '-F', '#{pane_id}']);
+    expect(listPanesResult.exitCode).toBe(0);
+    const paneIds = listPanesResult.stdout
+      .split('\n')
+      .map((paneId) => paneId.trim())
+      .filter((paneId) => paneId.length > 0);
 
-      expect(listPanesResult.exitCode).toBe(0);
-      const paneIds = listPanesResult.stdout
-        .split('\n')
-        .map((paneId) => paneId.trim())
-        .filter((paneId) => paneId.length > 0);
-
-      expect(paneIds).toHaveLength(1);
-    } catch (error) {
-      if (error instanceof Error && error.message === 'tmux not found') {
-        test.skip('tmux not found');
-        return;
-      }
-
-      throw error;
-    }
+    expect(paneIds).toHaveLength(1);
   });
 
   it('captures raw pane output bytes via pipe-pane', async () => {
-    if (!process.env.INTEGRATION_TMUX) {
-      test.skip('requires INTEGRATION_TMUX=1');
-      return;
-    }
-
     let pipePaneStarted = false;
     let paneId = '';
 
@@ -121,13 +143,6 @@ describe('fresh tmux integration helpers', () => {
       const capturedBytes = await readCapturedBytes(artifactPath);
       expect(countEscapeSeq(capturedBytes, '\u001b[31m')).toBe(1);
       expect(countEscapeSeq(capturedBytes, '\u001b[0m')).toBe(1);
-    } catch (error) {
-      if (error instanceof Error && error.message === 'tmux not found') {
-        test.skip('tmux not found');
-        return;
-      }
-
-      throw error;
     } finally {
       if (pipePaneStarted && paneId && freshServerSocket) {
         await stopPipePane(freshServerSocket, paneId);
