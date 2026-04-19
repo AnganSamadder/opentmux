@@ -579,7 +579,31 @@ export async function closeTmuxPane(paneId: string): Promise<boolean> {
     if (result.exitCode === 0) {
       log('[tmux] closeTmuxPane: SUCCESS, pane closed', { paneId });
 
-      await applyTmuxLayout();
+      // Gate unconditional layout reapplication on pane count when enabled
+      if (config.tui_conditional_layout_reapply) {
+        try {
+          const panesList = await spawnAsyncFn([tmux, 'list-panes', '-F', '#{pane_id}']);
+          const remainingPanes = panesList.stdout
+            .trim()
+            .split('\n')
+            .map((l) => l.trim())
+            .filter(Boolean);
+
+          // If there is 1 or 0 panes left, avoid forcing a layout redraw
+          if (remainingPanes.length > 1) {
+            await applyTmuxLayout();
+          } else {
+            // Skip layout reapply when only a single pane remains
+            log('[tmux] closeTmuxPane: skipping layout reapply (≤1 pane remains)');
+          }
+        } catch {
+          // In case of any failure counting panes, fall back to default behavior
+          await applyTmuxLayout();
+        }
+      } else {
+        // Default behavior when the feature is disabled
+        await applyTmuxLayout();
+      }
 
       return true;
     }

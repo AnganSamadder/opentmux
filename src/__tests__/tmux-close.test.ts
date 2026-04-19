@@ -8,6 +8,7 @@ import {
   setStoredTmuxConfigForTests,
 } from '../utils/tmux';
 import * as processUtils from '../utils/process';
+import * as tmuxModule from '../utils/tmux';
 import {
   countCallsMatching,
   findCallContaining,
@@ -162,4 +163,74 @@ test('backward compat with flag=false', async () => {
     [9999, 'SIGTERM'],
     [9999, 'SIGKILL'],
   ]);
+});
+
+test('layout skipped when 1 pane remains', async () => {
+  // Minimal close path: ensure we can control pane count after close
+  const mockSpawn = createMockSpawnFn();
+  // Sequence to satisfy closeTmuxPane until gating decision
+  mockSpawn.results.push(
+    { exitCode: 0, stdout: '/usr/bin/tmux\n', stderr: '' }, // path
+    { exitCode: 0, stdout: 'tmux 3.3\n', stderr: '' }, // tmux -V
+    { exitCode: 0, stdout: '12345\n', stderr: '' }, // list-panes pid
+    { exitCode: 0, stdout: '', stderr: '' }, // kill-pane
+    { exitCode: 0, stdout: '', stderr: '' }, // (fallback)
+    { exitCode: 0, stdout: 'pane-1', stderr: '' }, // list-panes after close -> 1 pane remains
+  );
+  // No layout should be invoked in this scenario, but if accidentally invoked,
+  // provide extra slots to satisfy any potential calls.
+  mockSpawn.results.push(
+    { exitCode: 0, stdout: '', stderr: '' },
+    { exitCode: 0, stdout: '', stderr: '' }
+  );
+  setSpawnAsyncFn(mockSpawn.fn);
+  setStoredTmuxConfigForTests(createTestConfig({ tui_conditional_layout_reapply: true }));
+
+  spyOn(processUtils, 'getProcessChildren').mockReturnValue([]);
+  const res = await closeTmuxPane('%1');
+  expect(res).toBe(true);
+  const selects = countCallsMatching(mockSpawn.calls, (cmd) => cmd.join(' ').includes('select-layout'));
+  // Gate should skip layout when only 1 pane remains
+  expect(selects).toBe(0);
+});
+
+test('layout applied when 3 panes remain', async () => {
+  const mockSpawn = createMockSpawnFn();
+  // Sequence: getTmuxPath, tmux -V, list-panes pid, kill-pane,
+  //           list-panes after close (3 panes → gate passes), select-layout
+  mockSpawn.results.push(
+    { exitCode: 0, stdout: '/usr/bin/tmux\n', stderr: '' }, // getTmuxPath
+    { exitCode: 0, stdout: 'tmux 3.3\n', stderr: '' },      // tmux -V
+    { exitCode: 0, stdout: '12345\n', stderr: '' },          // list-panes pid
+    { exitCode: 0, stdout: '', stderr: '' },                 // kill-pane
+    { exitCode: 0, stdout: 'pane-1\npane-2\npane-3', stderr: '' }, // list-panes after close → 3 panes remain
+    { exitCode: 0, stdout: '', stderr: '' },                 // select-layout (applyTmuxLayout)
+  );
+  setSpawnAsyncFn(mockSpawn.fn);
+  setStoredTmuxConfigForTests(createTestConfig({ tui_conditional_layout_reapply: true }));
+
+  const res = await closeTmuxPane('%1');
+  expect(res).toBe(true);
+  const selects = countCallsMatching(mockSpawn.calls, (cmd) => cmd.join(' ').includes('select-layout'));
+  expect(selects).toBeGreaterThanOrEqual(1);
+});
+
+test('layout always applied when flag=false', async () => {
+  const mockSpawn = createMockSpawnFn();
+  mockSpawn.results.push(
+    { exitCode: 0, stdout: '/usr/bin/tmux\n', stderr: '' }, // path
+    { exitCode: 0, stdout: 'tmux 3.3\n', stderr: '' }, // tmux -V
+    { exitCode: 0, stdout: '12345\n', stderr: '' }, // list-panes pid
+    { exitCode: 0, stdout: '', stderr: '' }, // kill-pane
+    { exitCode: 0, stdout: '', stderr: '' }, // (fallback)
+    { exitCode: 0, stdout: 'pane-1', stderr: '' }, // list-panes after close -> 1 pane remains
+    { exitCode: 0, stdout: '', stderr: '' }, // applyTmuxLayout internal calls
+  );
+  setSpawnAsyncFn(mockSpawn.fn);
+  setStoredTmuxConfigForTests(createTestConfig({ tui_conditional_layout_reapply: false }));
+
+  const res = await closeTmuxPane('%1');
+  expect(res).toBe(true);
+  const selects = countCallsMatching(mockSpawn.calls, (cmd) => cmd.join(' ').includes('select-layout'));
+  expect(selects).toBeGreaterThanOrEqual(1);
 });
