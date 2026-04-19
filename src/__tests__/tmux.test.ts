@@ -300,13 +300,21 @@ test('shell-escapes sessionId in spawn command (injection test)', async () => {
   const serverUrl = 'http://localhost:4096';
   const config = createTestConfig();
 
+  const mockFetch = mock(async () => new Response('ok', { status: 200 }));
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = mockFetch as unknown as typeof fetch;
+
   const result = await spawnTmuxPane(dangerousSessionId, 'Injection Test', config, serverUrl);
 
   expect(result.success).toBe(true);
   const splitWindowCall = findCallContaining(mockData.calls, 'split-window');
   expect(splitWindowCall).toBeDefined();
   const cmd = splitWindowCall!.command[splitWindowCall!.command.length - 1] as string;
+  const escapedServer = shellEscape(serverUrl);
+  const escapedSession = shellEscape(dangerousSessionId);
   expect(cmd).toContain("opencode attach");
-  expect(cmd).toContain("'http://localhost:4096'");
-  expect(cmd).toContain("'a'\\'';echo pwn'");
+  expect(cmd).toContain(escapedServer);
+  expect(cmd).toContain(escapedSession);
+  expect(cmd).toContain(`--session ${escapedSession}`);
+  globalThis.fetch = originalFetch;
 });
