@@ -160,6 +160,19 @@ All mitigations are feature-flagged. Add to your `opencode-agent-tmux.json`:
 }
 ```
 
+To enable maximum protection (aggressive fix mode), set all flags:
+
+```jsonc
+{
+  "tui_graceful_shutdown": true,
+  "tui_conditional_layout_reapply": true,
+  "tui_silent_refresh_after_close": true,
+  "tui_sh_exec_wrapper": true,
+  "tui_explicit_mode_reset": true,
+  "tui_ghostty_hardening": true
+}
+```
+
 If the bug persists, collect a log and open an issue:
 
 ```sh
