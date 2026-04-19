@@ -64,6 +64,13 @@ function createTmuxConfig(overrides?: Partial<TmuxConfig>): TmuxConfig {
     reaper_self_destruct_timeout_ms: 600000,
     rotate_port: false,
     max_ports: 10,
+    // New TUI isolation flags with defaults
+    tui_graceful_shutdown: true,
+    tui_conditional_layout_reapply: true,
+    tui_silent_refresh_after_close: true,
+    tui_sh_exec_wrapper: false,
+    tui_explicit_mode_reset: false,
+    tui_ghostty_hardening: false,
     ...overrides,
   };
 }
