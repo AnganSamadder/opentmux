@@ -116,6 +116,58 @@ You can customize behavior by creating `~/.config/opencode/opentmux.json`:
 ### Server Not Found
 Make sure OpenCode is started with the `--port` flag matching your config (the wrapper does this automatically).
 
+### TUI Input Hijack (Mouse / Scroll / Character Corruption)
+
+If you observe any of these symptoms after an agent pane opens or closes:
+
+- Mouse clicks print garbage characters (e.g. `\e[M...`) into your input
+- Scroll wheel inserts escape codes into the active input field
+- Typed characters appear in the wrong pane
+- Screen content is corrupted or panel boundaries are overwritten
+- Terminal input becomes unresponsive after a pane closes
+
+You may be hitting the TUI input-hijack bug. See [`docs/ROOT_CAUSE_TUI_HIJACK.md`](docs/ROOT_CAUSE_TUI_HIJACK.md) for a detailed explanation.
+
+**Quick Diagnostic**
+
+Capture parent-pane output while opening/closing an agent:
+
+```sh
+tmux pipe-pane -o -t .0 'cat >> /tmp/opentmux-diag.bin'
+# open and close an agent pane, then:
+tmux pipe-pane -t .0
+grep -c $'\e\[?2004' /tmp/opentmux-diag.bin
+grep -c $'\e\[?1049' /tmp/opentmux-diag.bin
+```
+
+If either count is > 0 after close, escape sequences leaked into the parent pane.
+
+**Configuration**
+
+All mitigations are feature-flagged. Add to your `opencode-agent-tmux.json`:
+
+```jsonc
+{
+  // Conservative defaults — all safe to enable:
+  "tui_graceful_shutdown": true,         // Send Ctrl-C to agent before SIGTERM
+  "tui_conditional_layout_reapply": true, // Skip layout redraw when no agents remain
+  "tui_silent_refresh_after_close": true, // Use refresh-client -S instead of full redraw
+
+  // Opt-in hardening (off by default — may affect shell config):
+  "tui_sh_exec_wrapper": false,     // Wrap spawn with sh -c exec (skips .bashrc/.zshrc)
+  "tui_explicit_mode_reset": false, // Inject DEC mode-reset bytes before closing agent
+  "tui_ghostty_hardening": false    // Extra reset step for Ghostty terminal users
+}
+```
+
+If the bug persists, collect a log and open an issue:
+
+```sh
+cat /tmp/opentmux.log
+tmux pipe-pane -o -t .0 'cat >> /tmp/opentmux-diag.bin'
+# reproduce, then attach /tmp/opentmux-diag.bin to your issue
+```
+
 ## 🗺️ Roadmap
 
 The following features are planned for future releases:
