@@ -333,15 +333,23 @@ test('sh-exec wrapper applied when flag=true', async () => {
 
   setSpawnAsyncFn(mockData.fn);
 
-  const config = createTestConfig({ tui_sh_exec_wrapper: true });
+  const mockFetch = mock(async () => new Response('ok', { status: 200 }));
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = mockFetch as unknown as typeof fetch;
+
+  try {
+    const config = createTestConfig({ tui_sh_exec_wrapper: true });
   const result = await spawnTmuxPane('test-session', 'Wrapper Test', config, 'http://localhost:4096');
 
   expect(result.success).toBe(true);
-  const splitWindowCall = findCallContaining(mockData.calls, 'split-window');
+    const splitWindowCall = findCallContaining(mockData.calls, 'split-window');
   expect(splitWindowCall).toBeDefined();
   const cmd = splitWindowCall!.command[splitWindowCall!.command.length - 1] as string;
   expect(cmd).toMatch(/^sh -c '/);
-  expect(cmd).toContain('exec opencode attach');
+    expect(cmd).toContain('exec opencode attach');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test('sh-exec wrapper not applied when flag=false', async () => {
@@ -358,13 +366,21 @@ test('sh-exec wrapper not applied when flag=false', async () => {
 
   setSpawnAsyncFn(mockData.fn);
 
-  const config = createTestConfig({ tui_sh_exec_wrapper: false });
+  const mockFetch = mock(async () => new Response('ok', { status: 200 }));
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = mockFetch as unknown as typeof fetch;
+
+  try {
+    const config = createTestConfig({ tui_sh_exec_wrapper: false });
   const result = await spawnTmuxPane('test-session-2', 'Wrapper Test 2', config, 'http://localhost:4096');
 
   expect(result.success).toBe(true);
-  const splitWindowCall = findCallContaining(mockData.calls, 'split-window');
+    const splitWindowCall = findCallContaining(mockData.calls, 'split-window');
   expect(splitWindowCall).toBeDefined();
   const cmd = splitWindowCall!.command[splitWindowCall!.command.length - 1] as string;
-  expect(cmd).toMatch(/^opencode attach/);
-  expect(cmd).not.toContain("sh -c");
+    expect(cmd).toMatch(/^opencode attach/);
+    expect(cmd).not.toContain("sh -c");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
