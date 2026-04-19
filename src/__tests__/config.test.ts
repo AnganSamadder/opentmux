@@ -27,7 +27,7 @@ test("PluginConfigSchema has new config fields (defaults)", () => {
 });
 
 test("PluginConfigSchema backward compatibility: legacy JSON missing new fields defaults applied", () => {
-  const legacyJson = { enabled: true, port: 4096 } as any;
+  const legacyJson: unknown = { enabled: true, port: 4096 };
   const cfg = PluginConfigSchema.parse(legacyJson);
   expect(cfg.enabled).toBe(true);
   expect(cfg.port).toBe(4096);
