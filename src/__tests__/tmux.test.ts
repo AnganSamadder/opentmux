@@ -8,6 +8,7 @@ import {
   type SpawnPaneResult,
 } from '../utils/tmux';
 import type { TmuxConfig } from '../config';
+import { findCallContaining } from './helpers/command-assertions';
 
 interface SpawnResult {
   exitCode: number;
@@ -112,10 +113,8 @@ test('spawnTmuxPane succeeds on first attempt', async () => {
     expect(result.success).toBe(true);
     expect(result.paneId).toBe('%5');
 
-    const splitWindowCall = mockData.calls.find((c) =>
-      c.command.includes('split-window'),
-    );
-    expect(splitWindowCall).toBeDefined();
+  const splitWindowCall = findCallContaining(mockData.calls, 'split-window');
+  expect(splitWindowCall).toBeDefined();
   } finally {
     globalThis.fetch = originalFetch;
   }
