@@ -6,7 +6,7 @@ OpenCode plugin published to npm as `opentmux`. Spawns tmux panes that mirror su
 
 - **Plugin entry**: `src/index.ts` — default-exports `OpencodeAgentTmux: Plugin`. OpenCode loads it when `~/.config/opencode/opencode.json` contains `"plugin": ["opentmux"]`.
 - **CLI binary**: `src/bin/opentmux.ts` → `dist/bin/opentmux.js`. This is the "smart wrapper" that end users alias as `opencode`; it detects tmux, picks a port, and exec's the real `opencode`.
-- **Postinstall**: `src/scripts/install.ts` → `dist/scripts/install.js`. Edits the user's shell rc (bash/zsh/fish/powershell) to add `alias opencode='opentmux'` and remove old `opencode-agent-tmux` markers. The npm `postinstall` script gates on `test -f dist/scripts/install.js`, so it silently no-ops in fresh clones until you `bun run build`.
+- **Postinstall**: `src/scripts/install.ts` → `dist/scripts/install.js`. Print-only: detects the user's shell, prints the snippet they should append to their rc file (alias on bash/zsh/fish, `function opencode` on PowerShell), and lists the legacy marker blocks (`opentmux`, `opencode-agent-tmux`, `opencode-subagent-tmux`) they should remove first. It does **not** read, create, or modify any rc files. The npm `postinstall` script gates on `test -f dist/scripts/install.js`, so it silently no-ops in fresh clones until you `bun run build`.
 - **`update-plugins`**: `src/scripts/update-plugins.ts` rewrites entries in the user's `opencode.json` plugin array. It mutates user config — read it before changing.
 
 `src/index.ts` and `src/bin/opentmux.ts` are independent: changing the plugin doesn't touch the wrapper, and vice versa.

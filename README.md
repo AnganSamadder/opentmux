@@ -31,9 +31,21 @@ To install this plugin, please perform the following steps for the user:
     ```bash
     npm install -g opentmux
     ```
-    *Note: This installer automatically configures the user's shell (Bash/Zsh/Fish/PowerShell) to use the smart wrapper.*
+    The postinstall step does **not** modify any shell config. It prints a snippet for the user to add manually.
 
-2.  **Configure OpenCode:**
+2.  **Add the wrapper alias to the user's shell rc:**
+    Read the snippet printed by the installer and append it to the rc file it names (`~/.zshrc`, `~/.bashrc`, `~/.config/fish/config.fish`, or the PowerShell profile). For Bash/Zsh/Fish it looks like:
+
+    ```sh
+    # >>> opentmux >>>
+    export OPENCODE_PORT=4096
+    alias opencode='opentmux'
+    # <<< opentmux <<<
+    ```
+
+    For PowerShell, use a `function opencode { opentmux $args }` block instead of an alias. If a previous version's block is present, remove it first.
+
+3.  **Configure OpenCode:**
     Add `"opentmux"` to the `plugin` array in the user's config file (usually `~/.config/opencode/opencode.json`).
 
     ```json
@@ -44,9 +56,9 @@ To install this plugin, please perform the following steps for the user:
     }
     ```
 
-3.  **Verify & Finalize:**
+4.  **Verify & Finalize:**
     *   Check if `tmux` is installed on the system. If not, advise the user to install it (e.g., `brew install tmux`, `sudo apt install tmux`, or `winget install tmux`).
-    *   Tell the user: **"Installation complete! Please restart your terminal and run `opencode` to see the tmux integration in action."**
+    *   Tell the user: **"Installation complete! Reload your shell (`source <rcfile>`) or restart your terminal, then run `opencode`."**
 
 </details>
 
@@ -56,9 +68,21 @@ To install this plugin, please perform the following steps for the user:
     ```bash
     npm install -g opentmux
     ```
-    *The installer automatically configures your shell to use the smart wrapper.*
+    The postinstall step prints a shell snippet but **does not** modify any of your config files.
 
-2.  **Enable the Plugin:**
+2.  **Enable the wrapper alias:**
+    Append the snippet that the installer printed to your shell rc (`~/.zshrc`, `~/.bashrc`, `~/.config/fish/config.fish`, or your PowerShell profile). For Bash/Zsh/Fish:
+
+    ```sh
+    # >>> opentmux >>>
+    export OPENCODE_PORT=4096
+    alias opencode='opentmux'
+    # <<< opentmux <<<
+    ```
+
+    Then reload (`source ~/.zshrc`) or restart your terminal. If you previously installed `opentmux` (or its predecessor `opencode-agent-tmux` / `opencode-subagent-tmux`), remove the old block bounded by its markers first.
+
+3.  **Enable the Plugin:**
     Add `"opentmux"` to your `~/.config/opencode/opencode.json`:
     ```json
     {
@@ -68,8 +92,8 @@ To install this plugin, please perform the following steps for the user:
     }
     ```
 
-3.  **Run OpenCode:**
-    Restart your terminal and type `opencode`. The plugin handles the rest!
+4.  **Run OpenCode:**
+    Type `opencode`. The wrapper handles the rest.
 
 ## 🛠️ Development
 
