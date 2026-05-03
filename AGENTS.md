@@ -1,247 +1,75 @@
 # AGENTS.md
 
-Instructions for AI agents working on opencode-agent-tmux.
+OpenCode plugin published to npm as `opentmux`. Spawns tmux panes that mirror subagent execution. TypeScript + Bun + tsup, ESM-only, no runtime framework.
 
-## Project Overview
+## Entrypoints (read these first)
 
-An OpenCode plugin providing smart tmux integration for viewing agent execution in real-time. Built as a TypeScript Node.js package with Bun tooling.
+- **Plugin entry**: `src/index.ts` — default-exports `OpencodeAgentTmux: Plugin`. OpenCode loads it when `~/.config/opencode/opencode.json` contains `"plugin": ["opentmux"]`.
+- **CLI binary**: `src/bin/opentmux.ts` → `dist/bin/opentmux.js`. This is the "smart wrapper" that end users alias as `opencode`; it detects tmux, picks a port, and exec's the real `opencode`.
+- **Postinstall**: `src/scripts/install.ts` → `dist/scripts/install.js`. Edits the user's shell rc (bash/zsh/fish/powershell) to add `alias opencode='opentmux'` and remove old `opencode-agent-tmux` markers. The npm `postinstall` script gates on `test -f dist/scripts/install.js`, so it silently no-ops in fresh clones until you `bun run build`.
+- **`update-plugins`**: `src/scripts/update-plugins.ts` rewrites entries in the user's `opencode.json` plugin array. It mutates user config — read it before changing.
 
-**Core Technologies:**
-- TypeScript (ESNext, strict mode)
-- Node.js runtime with ESM modules
-- Bun for development tooling
-- tsup for bundling
-- Zod for runtime validation
+`src/index.ts` and `src/bin/opentmux.ts` are independent: changing the plugin doesn't touch the wrapper, and vice versa.
 
-## Build, Lint, and Test Commands
-
-### Build Commands
-```bash
-# Full build (compile TypeScript to dist/)
-bun run build
-
-# Watch mode for development
-bun run dev
-
-# Type checking only (no emit)
-bun run typecheck
-```
-
-### Testing
-**Note:** This project uses manual/integration testing (no automated test suite).
+## Commands
 
 ```bash
-# Integration test scripts
-./scripts/test-plugin.sh      # Test plugin integration
-./scripts/test-multiport.sh   # Test multi-port support
-
-# Manual test after local build
-./scripts/dev-setup.sh         # Sets up local development
-source ~/.zshrc                # Reload shell config
-opencode                       # Run to test integration
+bun install
+bun run build       # tsup → dist/ (esm). Entries: index, bin/opentmux, scripts/install, scripts/update-plugins
+bun run dev         # tsup --watch
+bun run typecheck   # tsc --noEmit (strict, ESNext, moduleResolution: bundler)
+bun test                                  # Bun's native runner picks up src/**/*.test.ts
+bun test src/__tests__/config.test.ts     # single file
 ```
 
-### Linting
-**Note:** No ESLint/Prettier configured. Code quality enforced through TypeScript strict mode.
+There is **no `test` script** in `package.json` — call `bun test` directly. Tests live in `src/__tests__/*.test.ts` plus a colocated `src/utils/layout.test.ts` and use `bun:test`.
 
-```bash
-# Type checking serves as primary linting
-bun run typecheck
-```
+No ESLint, no Prettier. `bun run typecheck` is the only static check; CI does not currently run tests.
 
-## Code Style Guidelines
+## Config files (user-facing JSON)
 
-### Import Statements
+`src/utils/config-loader.ts` searches in this order, first hit wins:
 
-**Order and Grouping:**
-1. Type-only imports first (using `import type`)
-2. Node.js built-in modules (with `node:` prefix)
-3. External dependencies
-4. Relative imports (local modules)
-5. Group with blank lines between categories
+1. `<projectDir>/opentmux.json`
+2. `<projectDir>/opencode-agent-tmux.json`  *(legacy name, project-level only)*
+3. `~/.config/opencode/opentmux.json`
 
-**Examples:**
-```typescript
-// ✅ Good
-import type { Plugin } from './types';
-import * as fs from 'node:fs';
-import * as path from 'node:path';
-import { z } from 'zod';
-import { TmuxSessionManager } from './tmux-session-manager';
-import { log, startTmuxCheck } from './utils';
+Note the legacy `opencode-agent-tmux.json` name is **only** honoured at the project level — there is no `~/.config/opencode/opencode-agent-tmux.json` fallback.
 
-// ❌ Bad - missing node: prefix, wrong order
-import { z } from 'zod';
-import * as fs from 'fs';
-import { log } from './utils';
-import type { Plugin } from './types';
-```
+Schema: `PluginConfigSchema` in `src/config.ts` (Zod). It has many more fields than the README documents — `spawn_delay_ms`, `layout_debounce_ms`, `max_agents_per_column`, all `reaper_*`, `rotate_port`, `max_ports`. Update the README when adding fields.
 
-**Rules:**
-- Always use `node:` prefix for built-in modules (`node:fs`, `node:path`, `node:child_process`)
-- Omit `.ts` extensions in relative imports
-- Use named imports when importing specific exports
-- Use `import type` for type-only imports
+Runtime log file is `${os.tmpdir()}/opencode-agent-tmux.log`, not `/tmp/opentmux.log` as the README claims.
 
-### Naming Conventions
+## Style conventions worth preserving
 
-| Type | Convention | Examples |
-|------|------------|----------|
-| **Files** | kebab-case | `tmux-session-manager.ts`, `opentmux.ts` |
-| **Functions/Variables** | camelCase | `spawnTmuxPane`, `isInsideTmux`, `serverUrl` |
-| **Classes** | PascalCase | `TmuxSessionManager` |
-| **Types/Interfaces** | PascalCase | `PluginConfig`, `TmuxLayout` |
-| **Constants** | UPPER_SNAKE_CASE | `POLL_INTERVAL_MS`, `SESSION_TIMEOUT_MS` |
-| **Enums** | PascalCase | `TmuxLayoutSchema` (Zod enum) |
+Not enforced by tooling — easy to break silently:
 
-**No Interface Prefix:** Avoid `I` prefix (use `PluginConfig`, not `IPluginConfig`)
+- `import type` for type-only imports.
+- `node:` prefix on built-ins (`node:fs`, `node:path`, `node:child_process`). Plain `'fs'` will typecheck but is wrong here.
+- No `.ts` extensions on relative imports (`moduleResolution: bundler`).
+- File names: kebab-case. Constants: `UPPER_SNAKE_CASE`. Everything else follows standard TS.
 
-### TypeScript Patterns
+## Release & publish (fully automated — do not bypass)
 
-**Strict Typing (Required):**
-```typescript
-// ✅ Good - explicit types
-function loadConfig(directory: string): PluginConfig {
-  const configPaths: string[] = [
-    path.join(directory, 'opencode-agent-tmux.json'),
-  ];
-  // ...
-}
+**Do not** run `npm publish`, do not push `vX.Y.Z` tags by hand, do not edit `package.json` `version` or `CHANGELOG.md` manually. `release-please` owns all of that.
 
-// ❌ Bad - implicit any
-function loadConfig(directory) {
-  const configPaths = [...];
-  // ...
-}
-```
+Flow (`.github/workflows/release.yml` + `publish.yml`):
 
-**Zod for Runtime Validation:**
-```typescript
-// ✅ Good - use Zod schemas for config validation
-export const PluginConfigSchema = z.object({
-  enabled: z.boolean().default(true),
-  port: z.number().default(4096),
-});
+1. Push Conventional Commits (`feat:`, `fix:`, `feat!:` …) to `main`.
+2. `google-github-actions/release-please-action@v4` opens or updates a release PR with the version bump and changelog.
+3. Merging that PR creates a GitHub Release.
+4. The `release: published` event triggers `publish.yml`: `bun install` → `bun run build` → `npm publish --access public --provenance` using **npm trusted publishing (OIDC)**. The workflow explicitly clears `NODE_AUTH_TOKEN` / `NPM_TOKEN` — don't add an `NPM_TOKEN` secret, it would silently disable OIDC.
 
-export type PluginConfig = z.infer<typeof PluginConfigSchema>;
+If release-please isn't producing a PR, the cause is almost always non-conventional commit subjects on `main`.
 
-// Parse and validate
-const result = PluginConfigSchema.safeParse(parsed);
-if (result.success) {
-  return result.data;
-}
-```
+`docs/LOCAL_DEVELOPMENT.md` still tells contributors to run `npm publish` — that section is stale; ignore it.
 
-**Type Exports:**
-```typescript
-// ✅ Good - export both value and type
-export const TmuxLayoutSchema = z.enum(['main-horizontal', 'main-vertical']);
-export type TmuxLayout = z.infer<typeof TmuxLayoutSchema>;
+## Local dev install
 
-// ✅ Good - re-export types from index
-export type { PluginConfig, TmuxConfig, TmuxLayout } from './config';
-```
+`./scripts/dev-setup.sh` symlinks the npm-global `opentmux` binary at `dist/bin/opentmux.js`, so the existing user `alias opencode='opentmux'` resolves to your working copy. Re-run `bun run build` (or keep `bun run dev` running) to refresh.
 
-### Error Handling
+## Repo layout gotchas
 
-**Async Error Patterns:**
-```typescript
-// ✅ Good - try/catch with proper logging
-try {
-  const content = fs.readFileSync(configPath, 'utf-8');
-  const parsed = JSON.parse(content);
-  return PluginConfigSchema.parse(parsed);
-} catch (err) {
-  log('[plugin] config load error', { configPath, error: String(err) });
-  return defaultConfig;
-}
-
-// ✅ Good - graceful degradation
-const sessions = await fetchSessions().catch(() => []);
-```
-
-**Error Propagation:**
-- Let errors bubble up in async functions (throw/rethrow)
-- Catch at appropriate boundaries (plugin entry points)
-- Log errors with structured context
-
-### Async/Await Guidelines
-
-```typescript
-// ✅ Good - proper async/await
-async function closePanes(panes: string[]): Promise<void> {
-  await Promise.all(panes.map(pane => closePane(pane)));
-}
-
-// ✅ Good - sequential when order matters
-async function setup(): Promise<void> {
-  await initializeConfig();
-  await startTmuxManager();
-}
-
-// ❌ Bad - unnecessary await in return
-async function getData(): Promise<Data> {
-  return await fetchData(); // Just use: return fetchData();
-}
-```
-
-## Configuration Files
-
-- **tsconfig.json**: TypeScript compiler (strict mode, ESNext target)
-- **tsup.config.ts**: Build configuration (ESM output, multiple entries)
-- **package.json**: NPM metadata, scripts, dependencies
-
-**Plugin Config Location:**
-- Primary: `~/.config/opencode/opencode-agent-tmux.json`
-- Fallback: `{project}/opencode-agent-tmux.json`
-
-## Release Process
-
-This project uses GitHub Actions for automated releases. **Do NOT run `npm publish` manually.**
-
-**Workflow behavior (from `.github/workflows/publish-npm.yml`):**
-- Trigger: Push of tag `v*`
-- Build: `bun install` + `bun run build`
-- Publish: `npm publish --access public` via `NPM_TOKEN` secret
-
-### Steps:
-1. **Make changes, commit with conventional commits:**
-   ```bash
-   git commit -m "feat: add new feature"  # Minor version bump
-   git commit -m "fix: resolve bug"       # Patch version bump
-   git commit -m "feat!: breaking change" # Major version bump
-   ```
-
-2. **Update version in package.json:**
-   - Patch (1.1.x): Bug fixes only
-   - Minor (1.x.0): New features, backward compatible
-   - Major (x.0.0): Breaking changes
-
-3. **Commit, tag, and push:**
-   ```bash
-   git add package.json
-   git commit -m "Bump version to X.Y.Z"
-   git tag vX.Y.Z
-   git push origin main --tags
-   ```
-
-4. **Create GitHub release (optional, for documentation):**
-   ```bash
-   gh release create vX.Y.Z --title "vX.Y.Z" --notes "Release notes..."
-   ```
-
-5. **Verify:**
-   - Check https://github.com/AnganSamadder/opentmux/actions
-   - Verify npm: `npm view opentmux version`
-
-## Local Development
-
-See [docs/LOCAL_DEVELOPMENT.md](docs/LOCAL_DEVELOPMENT.md) for contributor setup.
-
-**Quick Start:**
-```bash
-./scripts/dev-setup.sh  # Initial setup
-source ~/.zshrc         # Reload shell
-bun run dev            # Watch mode
-opencode               # Test in separate terminal
-```
+- Many root-level `*.md` files (`PLAN.md`, `MULTI_PORT.md`, `SETUP_COMPLETE.md`, `SISYPHUS-PROMPT.md`, `TMUX_LAUNCHER.md`) and the root-level `test-*.sh` scripts are historical / pre-current-layout and contain hardcoded paths like `/Users/angansamadder/...`. Treat as scratch, not authoritative. The only live script is `scripts/dev-setup.sh`.
+- `.sisyphus/`, `.opencode/`, `ai-todo.md` are gitignored agent scratch. `.kilo/` is untracked local state and `opencode-fake` is a tracked test stub — none of these should be referenced from production code.
+- The npm package ships `dist/` only (`files: ["dist"]`).
