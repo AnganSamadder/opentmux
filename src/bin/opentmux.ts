@@ -19,6 +19,132 @@ import {
   getProcessStartTime,
 } from "../utils/process";
 
+/**
+ * Deterministic 8-char hex hash of a working directory, for tmux session naming.
+ * DJB2-style — no crypto dependency, good enough for session-name uniqueness.
+ */
+function hashCwd(cwd: string): string {
+  let hash = 5381;
+  for (let i = 0; i < cwd.length; i++) {
+    hash = ((hash << 5) + hash) + cwd.charCodeAt(i);
+    hash = hash & hash; // coerce to 32-bit
+  }
+  return Math.abs(hash).toString(16).padStart(8, "0").slice(0, 8);
+}
+
+/**
+ * Build the deterministic tmux session name for a working directory.
+ */
+function sessionNameForCwd(cwd: string): string {
+  return `opencode-${hashCwd(cwd)}`;
+}
+
+interface TmuxSessionMap {
+  /** pane_pid → session_name */
+  panePidToSession: Map<number, string>;
+  /** session names that currently have at least one attached client */
+  attachedSessions: Set<string>;
+}
+
+/**
+ * Build a map of every tmux pane PID to its session name, plus the set of
+ * sessions that currently have attached clients. Returns empty structures if
+ * tmux is unavailable or no sessions exist.
+ */
+function buildTmuxSessionMap(): TmuxSessionMap {
+  const panePidToSession = new Map<number, string>();
+  const attachedSessions = new Set<string>();
+
+  if (!hasTmux()) return { panePidToSession, attachedSessions };
+
+  const paneOutput = safeExec(
+    "tmux list-panes -a -F '#{pane_pid} #{session_name}' 2>/dev/null",
+  );
+  if (paneOutput) {
+    for (const line of paneOutput.split("\n")) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      const spaceIdx = trimmed.indexOf(" ");
+      if (spaceIdx === -1) continue;
+      const pid = Number.parseInt(trimmed.slice(0, spaceIdx), 10);
+      const name = trimmed.slice(spaceIdx + 1).trim();
+      if (Number.isFinite(pid) && name) {
+        panePidToSession.set(pid, name);
+      }
+    }
+  }
+
+  const clientOutput = safeExec(
+    "tmux list-clients -F '#{client_session}' 2>/dev/null",
+  );
+  if (clientOutput) {
+    for (const name of clientOutput.split("\n")) {
+      const trimmed = name.trim();
+      if (trimmed) attachedSessions.add(trimmed);
+    }
+  }
+
+  return { panePidToSession, attachedSessions };
+}
+
+/**
+ * Walk up the process tree from `pid` and return the name of the tmux session
+ * whose pane_pid is an ancestor of `pid`, or null if the process is not inside
+ * any tmux session.
+ */
+function findTmuxSessionForPid(
+  pid: number,
+  map: TmuxSessionMap,
+): string | null {
+  let current = pid;
+  const visited = new Set<number>();
+  while (current > 1 && !visited.has(current)) {
+    if (map.panePidToSession.has(current)) {
+      return map.panePidToSession.get(current)!;
+    }
+    visited.add(current);
+    const parent = getParentPid(current);
+    if (!parent || parent <= 1) break;
+    current = parent;
+  }
+  return null;
+}
+
+/**
+ * Retrieve the OPENCODE_PORT stored in a tmux session's environment.
+ * Returns the port number, or null if the session doesn't exist, doesn't have
+ * the env var, or the value is not a finite integer.
+ */
+function getSessionPort(sessionName: string): number | null {
+  const output = safeExec(
+    `tmux show-environment -t ${shellQuote(sessionName)} OPENCODE_PORT 2>/dev/null`,
+  );
+  if (!output) return null;
+  const match = output.match(/OPENCODE_PORT=(\d+)/);
+  if (!match) return null;
+  const port = Number.parseInt(match[1], 10);
+  return Number.isFinite(port) ? port : null;
+}
+
+/**
+ * Store OPENCODE_PORT in a tmux session's environment so future launcher
+ * invocations can discover it for reuse.
+ */
+function setSessionPort(sessionName: string, port: number): void {
+  safeExec(
+    `tmux set-environment -t ${shellQuote(sessionName)} OPENCODE_PORT ${port}`,
+  );
+}
+
+/**
+ * Shell-quote a value for safe use inside a tmux command. Wraps in single
+ * quotes and escapes any embedded single quotes.
+ */
+function shellQuote(value: string): string {
+  if (/^[A-Za-z0-9_.-]+$/.test(value)) return value;
+  return `'${value.replace(/'/g, "'\\''")}'`;
+}
+
 // Load config
 const config = loadConfig();
 const OPENCODE_PORT_START =
@@ -105,20 +231,6 @@ function checkPort(port: number): Promise<boolean> {
   });
 }
 
-function getTmuxPanePids(): Set<number> {
-  if (!hasTmux()) return new Set();
-
-  const output = safeExec("tmux list-panes -a -F '#{pane_pid}'");
-  if (!output) return new Set();
-
-  const pids = output
-    .split("\n")
-    .map((value) => Number.parseInt(value.trim(), 10))
-    .filter((value) => Number.isFinite(value));
-
-  return new Set(pids);
-}
-
 async function isOpencodeHealthy(port: number): Promise<boolean> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), HEALTH_TIMEOUT_MS);
@@ -168,22 +280,6 @@ function getParentPid(pid: number): number | null {
   return Number.isFinite(value) ? value : null;
 }
 
-function isDescendantOf(pid: number, ancestors: Set<number>): boolean {
-  let current = pid;
-  const visited = new Set<number>();
-
-  while (current > 1 && !visited.has(current)) {
-    if (ancestors.has(current)) return true;
-    visited.add(current);
-
-    const parent = getParentPid(current);
-    if (!parent || parent <= 1) return false;
-    current = parent;
-  }
-
-  return false;
-}
-
 function isForegroundProcess(pid: number): boolean {
   const stat = safeExec(`ps -p ${pid} -o stat=`);
   if (!stat) return false;
@@ -227,7 +323,7 @@ async function getOpencodeSessionCount(port: number): Promise<number | null> {
 
 async function tryReclaimPort(
   port: number,
-  tmuxPanePids: Set<number>,
+  tmuxSessionMap: TmuxSessionMap,
 ): Promise<boolean> {
   if (platform === "win32") return false;
 
@@ -256,7 +352,10 @@ async function tryReclaimPort(
     const stat = getProcessStat(pid);
     const hasTtyPeers = hasOtherTtyProcesses(tty, pid);
 
-    const inTmux = tmuxPanePids.size > 0 && isDescendantOf(pid, tmuxPanePids);
+    const sessionName = findTmuxSessionForPid(pid, tmuxSessionMap);
+    const inAttachedTmux =
+      sessionName !== null && tmuxSessionMap.attachedSessions.has(sessionName);
+
     log(
       "Port process:",
       port.toString(),
@@ -266,8 +365,10 @@ async function tryReclaimPort(
       tty ?? "unknown",
       "stat",
       stat ?? "unknown",
-      "tmux",
-      String(inTmux),
+      "tmuxSession",
+      sessionName ?? "none",
+      "attached",
+      String(inAttachedTmux),
       "ttyPeers",
       String(hasTtyPeers),
       "command",
@@ -275,31 +376,39 @@ async function tryReclaimPort(
     );
 
     if (command && command.includes("opencode")) {
-      if (inTmux) {
+      if (sessionName && inAttachedTmux) {
         log(
-          "Port owned by tmux process, skipping:",
+          "Port owned by attached tmux session, skipping:",
           port.toString(),
           pid.toString(),
+          sessionName,
         );
         continue;
       }
-
-      if (hasTtyPeers) {
+      if (sessionName && !inAttachedTmux) {
         log(
-          "Port owned by active tty process, skipping:",
+          "Port owned by detached tmux session with unhealthy opencode, reclaiming:",
           port.toString(),
           pid.toString(),
+          sessionName,
         );
-        continue;
-      }
-
-      if (isForegroundProcess(pid)) {
-        log(
-          "Port owned by potentially busy foreground process, skipping:",
-          port.toString(),
-          pid.toString(),
-        );
-        continue;
+      } else {
+        if (hasTtyPeers) {
+          log(
+            "Port owned by active tty process, skipping:",
+            port.toString(),
+            pid.toString(),
+          );
+          continue;
+        }
+        if (isForegroundProcess(pid)) {
+          log(
+            "Port owned by potentially busy foreground process, skipping:",
+            port.toString(),
+            pid.toString(),
+          );
+          continue;
+        }
       }
     }
 
@@ -336,18 +445,74 @@ async function tryReclaimPort(
 }
 
 async function findAvailablePort(): Promise<number | null> {
-  let tmuxPanePids: Set<number> | null = null;
+  let tmuxSessionMap: TmuxSessionMap | null = null;
   for (let port = OPENCODE_PORT_START; port <= OPENCODE_PORT_MAX; port++) {
     if (await checkPort(port)) return port;
 
-    if (!tmuxPanePids) {
-      tmuxPanePids = getTmuxPanePids();
+    if (!tmuxSessionMap) {
+      tmuxSessionMap = buildTmuxSessionMap();
     }
 
-    const reclaimed = await tryReclaimPort(port, tmuxPanePids);
+    const reclaimed = await tryReclaimPort(port, tmuxSessionMap);
     if (reclaimed && (await checkPort(port))) return port;
   }
   return null;
+}
+
+async function tryReuseSession(cwd: string): Promise<boolean> {
+  const sessionName = sessionNameForCwd(cwd);
+
+  let sessionExists = false;
+  try {
+    execSync(`tmux has-session -t ${shellQuote(sessionName)}`, {
+      stdio: "ignore",
+    });
+    sessionExists = true;
+  } catch {
+    sessionExists = false;
+  }
+
+  if (!sessionExists) return false;
+
+  const port = getSessionPort(sessionName);
+  if (port === null) {
+    log(
+      "Existing session found but no port env var, killing and recreating:",
+      sessionName,
+    );
+    safeExec(`tmux kill-session -t ${shellQuote(sessionName)}`);
+    return false;
+  }
+
+  const healthy = await isOpencodeHealthy(port);
+  if (!healthy) {
+    log(
+      "Existing session has unhealthy opencode, killing and recreating:",
+      sessionName,
+      "port",
+      port.toString(),
+    );
+    safeExec(`tmux kill-session -t ${shellQuote(sessionName)}`);
+    return false;
+  }
+
+  log("Reusing existing session:", sessionName, "port:", port.toString());
+  console.log(`🔄 Reconnecting to existing session (${sessionName})...`);
+
+  const child = spawn("tmux", ["attach-session", "-t", sessionName], {
+    stdio: "inherit",
+    env: process.env,
+  });
+
+  return new Promise<boolean>((resolve) => {
+    child.on("close", (code) => {
+      exit(code ?? 0);
+    });
+    child.on("error", (err) => {
+      log("ERROR attaching to existing session:", err.message);
+      resolve(false);
+    });
+  });
 }
 
 function hasTmux(): boolean {
@@ -371,8 +536,13 @@ async function main() {
   // If we are running via node/bun, we are ALWAYS in script mode for this wrapper.
   const args = isRuntime ? argv.slice(2) : argv.slice(1);
 
+  const forceNew = args.includes("--new") || args.includes("-new");
+  const userArgs = args.filter(
+    (a) => a !== "--new" && a !== "-new",
+  );
+
   // Check for opentmux-specific flags first
-  if (args.includes("--reap") || args.includes("-reap")) {
+  if (userArgs.includes("--reap") || userArgs.includes("-reap")) {
     await ZombieReaper.reapAll();
     exit(0);
   }
@@ -420,8 +590,9 @@ async function main() {
     "-h",
   ];
 
-  const isCliCommand = args.length > 0 && NON_TUI_COMMANDS.includes(args[0]);
-  const isInteractiveMode = args.length === 0;
+  const isCliCommand =
+    userArgs.length > 0 && NON_TUI_COMMANDS.includes(userArgs[0]);
+  const isInteractiveMode = userArgs.length === 0;
 
   // For CLI commands, bypass tmux
   if (isCliCommand) {
@@ -433,9 +604,9 @@ async function main() {
       exit(1);
     }
 
-    const bypassArgs = [...args];
-    const hasPrintLogs = args.includes("--print-logs");
-    if (!hasPrintLogs && !args.some((arg) => arg.startsWith("--log-level"))) {
+    const bypassArgs = [...userArgs];
+    const hasPrintLogs = userArgs.includes("--print-logs");
+    if (!hasPrintLogs && !userArgs.some((arg) => arg.startsWith("--log-level"))) {
       bypassArgs.push("--log-level", "ERROR");
     }
 
@@ -459,9 +630,18 @@ async function main() {
     return;
   }
 
+  const inTmux = !!env.TMUX;
+  const tmuxAvailable = hasTmux();
+
+  if (!inTmux && tmuxAvailable && !forceNew) {
+    const reused = await tryReuseSession(process.cwd());
+    if (reused) return;
+  }
+
   log("=== OpenCode Tmux Wrapper Started ===");
   log("Process argv:", JSON.stringify(argv));
   log("Current directory:", process.cwd());
+  log("Force new session?", forceNew);
 
   const opencodeBin = findOpencodeBin();
   log("Found opencode binary:", opencodeBin);
@@ -550,13 +730,10 @@ async function main() {
   const env2 = { ...process.env };
   env2.OPENCODE_PORT = port.toString();
 
-  log("User args:", JSON.stringify(args));
+  log("User args:", JSON.stringify(userArgs));
 
-  const childArgs = ["--port", port.toString(), ...args];
+  const childArgs = ["--port", port.toString(), ...userArgs];
   log("Final childArgs:", JSON.stringify(childArgs));
-
-  const inTmux = !!env2.TMUX;
-  const tmuxAvailable = hasTmux();
 
   log("In tmux?", inTmux);
   log("Tmux available?", tmuxAvailable);
@@ -581,8 +758,12 @@ async function main() {
     process.on("SIGINT", () => child.kill("SIGINT"));
     process.on("SIGTERM", () => child.kill("SIGTERM"));
   } else {
-    console.log("🚀 Launching tmux session...");
-    log("Launching tmux session");
+    const sessionName = forceNew
+      ? `opencode-${hashCwd(process.cwd())}-${Date.now().toString(36)}`
+      : sessionNameForCwd(process.cwd());
+
+    console.log(`🚀 Launching tmux session (${sessionName})...`);
+    log("Launching tmux session:", sessionName);
 
     const escapedBin = opencodeBin.includes(" ")
       ? `'${opencodeBin}'`
@@ -594,11 +775,20 @@ async function main() {
       return arg;
     });
 
-    const shellCommand = `${escapedBin} ${escapedArgs.join(" ")} || { echo "Exit code: $?"; echo "Press Enter to close..."; read; }`;
+    const opencodeInvocation = `${escapedBin} ${escapedArgs.join(" ")}`;
+    const shellCommand = config.auto_close
+      ? opencodeInvocation
+      : `${opencodeInvocation}; echo "Exit code: $?"; echo "Press Enter to close..."; read`;
 
     log("Shell command for tmux:", shellCommand);
+    log("auto_close:", config.auto_close);
 
-    const tmuxArgs = ["new-session", shellCommand];
+    const tmuxArgs = [
+      "new-session",
+      "-s",
+      sessionName,
+      shellCommand,
+    ];
 
     log("Tmux args:", JSON.stringify(tmuxArgs));
 
@@ -608,6 +798,10 @@ async function main() {
       log("ERROR spawning tmux:", err.message);
     });
 
+    child.on("spawn", () => {
+      setSessionPort(sessionName, port);
+    });
+
     child.on("close", (code) => {
       log("Tmux exited with code:", code);
       exit(code ?? 0);
@@ -615,13 +809,29 @@ async function main() {
   }
 }
 
-main().catch((err) => {
-  // Handle AbortError gracefully (user cancelled)
-  if (err.name === "AbortError" || err.code === 20) {
-    exit(0);
-  }
+if (!env.OPENCODE_TMUX_NO_RUN) {
+  main().catch((err) => {
+    if (err.name === "AbortError" || err.code === 20) {
+      exit(0);
+    }
 
-  log("FATAL ERROR:", err.message, err.stack);
-  console.error(err);
-  exit(1);
-});
+    log("FATAL ERROR:", err.message, err.stack);
+    console.error(err);
+    exit(1);
+  });
+}
+
+// main() runs on import, so tests gate it via the OPENCODE_TMUX_NO_RUN env var.
+export {
+  hashCwd,
+  sessionNameForCwd,
+  buildTmuxSessionMap,
+  findTmuxSessionForPid,
+  getSessionPort,
+  setSessionPort,
+  shellQuote,
+  tryReuseSession,
+  tryReclaimPort,
+  findAvailablePort,
+  type TmuxSessionMap,
+};
