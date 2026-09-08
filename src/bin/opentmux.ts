@@ -359,6 +359,37 @@ function hasTmux(): boolean {
   }
 }
 
+type ShellType = "fish" | "zsh" | "bash" | "powershell" | "cmd" | "unknown";
+
+function detectUserShell(): ShellType {
+  const shell = env.SHELL ?? "";
+  if (shell.includes("fish")) return "fish";
+  if (shell.includes("zsh")) return "zsh";
+  if (shell.includes("bash")) return "bash";
+  if (shell.includes("powershell") || shell.includes("pwsh")) return "powershell";
+  if (shell.includes("cmd")) return "cmd";
+  return "unknown";
+}
+
+function buildShellCommand(bin: string, args: string[], shell: ShellType): string {
+  const base = `${bin} ${args.join(" ")}`;
+
+  switch (shell) {
+    case "fish":
+      return `${base}; or begin
+  echo "Exit code: $status"
+  echo "Press Enter to close..."
+  read
+end`;
+    case "powershell":
+      return `${base} -or { Write-Host "Exit code: $LASTEXITCODE"; Write-Host "Press Enter to close..."; Read-Host }`;
+    case "zsh":
+    case "bash":
+    default:
+      return `${base} || { echo "Exit code: $?"; echo "Press Enter to close..."; read; }`;
+  }
+}
+
 async function main() {
   // Check if running as a script (node script.js) or a compiled binary
   // In script mode: argv[0]=node, argv[1]=script, argv[2]=arg1 -> slice(2)
@@ -594,7 +625,7 @@ async function main() {
       return arg;
     });
 
-    const shellCommand = `${escapedBin} ${escapedArgs.join(" ")} || { echo "Exit code: $?"; echo "Press Enter to close..."; read; }`;
+    const shellCommand = buildShellCommand(escapedBin, escapedArgs, detectUserShell());
 
     log("Shell command for tmux:", shellCommand);
 
