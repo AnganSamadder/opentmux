@@ -76,6 +76,41 @@ const OpencodeAgentTmux: Plugin = async (ctx) => {
   };
 };
 
-export default OpencodeAgentTmux;
+export async function setup(ctx: {
+  client?: any;
+  directory?: string;
+  location?: { directory?: string };
+  server?: { url?: URL | string };
+  serverUrl?: URL | string;
+  event?: {
+    subscribe: () => AsyncIterable<{ type: string; properties?: unknown }> | Promise<AsyncIterable<{ type: string; properties?: unknown }>>;
+  };
+}): Promise<void> {
+  const hooks = await OpencodeAgentTmux({
+    client: ctx.client,
+    directory: ctx.location?.directory ?? ctx.directory ?? process.cwd(),
+    serverUrl: ctx.server?.url ?? ctx.serverUrl,
+  });
+  if (hooks?.event && ctx.event?.subscribe) {
+    const handleEvent = hooks.event;
+    const eventSubscriber = ctx.event.subscribe.bind(ctx.event);
+    void (async () => {
+      try {
+        for await (const event of await eventSubscriber()) {
+          await handleEvent({ event });
+        }
+      } catch {}
+    })();
+  }
+}
+
+const plugin = {
+  id: "opentmux",
+  setup,
+  server: OpencodeAgentTmux,
+};
+
+export { OpencodeAgentTmux, OpencodeAgentTmux as server };
+export default plugin;
 
 export type { PluginConfig, TmuxConfig, TmuxLayout } from './config';
